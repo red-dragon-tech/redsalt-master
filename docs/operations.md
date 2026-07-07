@@ -52,6 +52,16 @@ systemctl restart salt-master
    salt '<minion-id>' state.apply
    ```
 
+## SSH access checks
+
+The base role manages the `darthai` account and its `authorized_keys` entries from `managed_users` pillar. After applying highstate, verify on a managed minion:
+
+```bash
+id darthai
+sudo -u darthai test -d /home/darthai/.ssh
+sudo test -f /home/darthai/.ssh/authorized_keys
+```
+
 ## vLLM service checks
 
 On the minion:

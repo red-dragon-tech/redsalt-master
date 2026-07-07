@@ -36,6 +36,7 @@ REQUIRED = [
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
     'states/common/init.sls',
+    'states/users/init.sls',
     'states/docker/init.sls',
     'states/nvidia/init.sls',
     'states/models/init.sls',
@@ -46,6 +47,7 @@ REQUIRED = [
     'tests/test_repo_static.py',
 ]
 ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm'}
+DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
 SECRET_PATTERNS = [
     re.compile(r'(?i)(api[_-]?key|token|password|secret)\s*[:=]\s*[A-Za-z0-9_./+=-]{20,}'),
     re.compile(r'gh[pousr]_[A-Za-z0-9_]{20,}'),
@@ -99,6 +101,22 @@ def check_roles() -> None:
             fail(f'missing state role file for {role}')
 
 
+def check_managed_users() -> None:
+    common_defaults = load_yaml(ROOT / 'pillar/common/defaults.sls') or {}
+    users = common_defaults.get('managed_users') or []
+    darthai = next((user for user in users if user.get('name') == 'darthai'), None)
+    if not darthai:
+        fail('pillar/common/defaults.sls missing managed_users entry for darthai')
+    if darthai.get('home') != '/home/darthai':
+        fail('darthai managed user must use /home/darthai as home')
+    if DARTHAI_PUBLIC_KEY not in (darthai.get('ssh_authorized_keys') or []):
+        fail('darthai managed user missing expected SSH public key')
+
+    base_role = (ROOT / 'states/roles/base.sls').read_text()
+    if '- users' not in base_role:
+        fail('states/roles/base.sls must include users state')
+
+
 def check_no_obvious_secrets() -> None:
     skip_dirs = {'.git', '__pycache__', '.pytest_cache'}
     for path in ROOT.rglob('*'):
@@ -115,6 +133,7 @@ def main() -> int:
     check_yaml()
     check_jinja()
     check_roles()
+    check_managed_users()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
     return 0

@@ -13,6 +13,7 @@ This repository is intentionally role-driven and standards-based:
 - **LLM runtime:** vLLM OpenAI-compatible server
 - **Model path:** `/opt/models`, mounted into containers as `/models:ro`
 - **Secrets:** no real secrets are committed; use plain pillar placeholders only until GPG/SOPS/Vault/ext_pillar is introduced
+- **Baseline access:** `roles.base` creates the `darthai` SSH user with Darth's public key from plain pillar
 
 ## Repository layout
 
@@ -39,6 +40,10 @@ roles:
 ```
 
 Role composition states live in `states/roles/` and keep `states/top.sls` small.
+
+## Managed SSH access
+
+The base role includes `states/users/init.sls`, which reads `managed_users` from pillar. The default pillar creates a `darthai` user with key-only SSH access using Darth's Ed25519 public key. Public SSH keys are intentionally non-secret; do not commit private keys or password hashes.
 
 ## Quick start
 

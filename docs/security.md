@@ -13,6 +13,8 @@ Do **not** commit:
 - Registry credentials
 - TLS private keys
 
+SSH public keys, such as entries under `managed_users:*:ssh_authorized_keys`, are not secrets and may be committed for intended access management. Never commit the matching private key.
+
 ## Secret migration options
 
 When secrets are needed, prefer one of these patterns:
