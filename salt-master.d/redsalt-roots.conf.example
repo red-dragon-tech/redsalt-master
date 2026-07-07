@@ -1,0 +1,10 @@
+# Example Salt master roots configuration for this repository.
+# Adjust /srv/redsalt-master to the checkout path on your Salt master.
+
+file_roots:
+  base:
+    - /srv/redsalt-master/states
+
+pillar_roots:
+  base:
+    - /srv/redsalt-master/pillar

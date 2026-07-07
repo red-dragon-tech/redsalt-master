@@ -1,0 +1,23 @@
+# Python / validation
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.venv/
+venv/
+
+# Salt runtime caches / generated local data
+.cache/
+*.retry
+*.log
+
+# Secrets and operator-local overrides
+*.secret.sls
+secrets.sls
+pillar/secrets/*.sls
+.env
+.env.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

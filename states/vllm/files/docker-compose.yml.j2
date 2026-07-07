@@ -1,0 +1,43 @@
+services:
+  vllm-openai:
+    image: {{ vllm.get('image', 'vllm/vllm-openai:latest') }}
+    restart: unless-stopped
+    ipc: host
+    ports:
+      - "{{ vllm.get('port', 8000) }}:8000"
+    env_file:
+      - {{ vllm.get('env_file', '/etc/redsalt/vllm.env') }}
+    volumes:
+      - {{ model_path }}:/models:ro
+      - {{ hf_cache }}:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: {{ vllm.get('gpu_count', 'all') }}
+              capabilities: [gpu]
+    command:
+      - --host
+      - {{ vllm.get('host', '0.0.0.0') }}
+      - --port
+      - "8000"
+      - --model
+      - {{ vllm.get('model', '/models/model') }}
+      - --served-model-name
+      - {{ vllm.get('served_model_name', 'local-model') }}
+      - --gpu-memory-utilization
+      - "{{ vllm.get('gpu_memory_utilization', 0.90) }}"
+      - --max-model-len
+      - "{{ vllm.get('max_model_len', 32768) }}"
+      - --tensor-parallel-size
+      - "{{ vllm.get('tensor_parallel_size', 1) }}"
+{% if vllm.get('enable_prefix_caching', True) %}
+      - --enable-prefix-caching
+{% endif %}
+{% if vllm.get('trust_remote_code', False) %}
+      - --trust-remote-code
+{% endif %}
+{% for arg in vllm.get('extra_args', []) %}
+      - {{ arg }}
+{% endfor %}
