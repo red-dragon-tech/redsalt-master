@@ -36,6 +36,7 @@ Managed vLLM hosts use deterministic paths:
 ## vLLM deployment flow
 
 1. `roles.base` converges base packages and system directories.
-2. `roles.docker` installs Docker Engine and Compose from Docker's official Ubuntu repo.
-3. `roles.nvidia` installs NVIDIA Container Toolkit and configures Docker's NVIDIA runtime.
-4. `roles.llm_vllm` writes vLLM Compose/systemd files, creates model/cache directories, and starts the service.
+2. `roles.base` creates managed local users and authorized SSH keys from pillar, including the `darthai` automation user.
+3. `roles.docker` installs Docker Engine and Compose from Docker's official Ubuntu repo.
+4. `roles.nvidia` installs NVIDIA Container Toolkit and configures Docker's NVIDIA runtime.
+5. `roles.llm_vllm` writes vLLM Compose/systemd files, creates model/cache directories, and starts the service.
