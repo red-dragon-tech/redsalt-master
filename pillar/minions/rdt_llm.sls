@@ -31,6 +31,8 @@ vllm:
   tensor_parallel_size: 1
   enable_prefix_caching: true
   trust_remote_code: false
+  env_vars:
+    VLLM_ALLOW_LONG_MAX_MODEL_LEN: '1'
   extra_args:
     - --quantization
     - awq
