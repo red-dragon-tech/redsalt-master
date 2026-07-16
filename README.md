@@ -14,6 +14,7 @@ This repository is intentionally role-driven and standards-based:
 - **Model path:** `/opt/models`, mounted into containers as `/models:ro`
 - **Secrets:** no real secrets are committed; use plain pillar placeholders only until GPG/SOPS/Vault/ext_pillar is introduced
 - **Baseline access:** `roles.base` creates the `darthai` SSH user with Darth's public key from plain pillar
+- **Firewall baseline:** `roles.base` enables UFW, denies inbound traffic by default, allows SSH only from Darth's current `/32`, and allows Salt ports `4505/tcp` and `4506/tcp` only from the Salt master source CIDR
 
 ## Repository layout
 
@@ -44,6 +45,17 @@ Role composition states live in `states/roles/` and keep `states/top.sls` small.
 ## Managed SSH access
 
 The base role includes `states/users/init.sls`, which reads `managed_users` from pillar. The default pillar creates a `darthai` user with key-only SSH access using Darth's Ed25519 public key. Public SSH keys are intentionally non-secret; do not commit private keys or password hashes.
+
+## Firewall baseline
+
+The base role includes `states/firewall/init.sls`, which owns the host UFW ruleset by default:
+
+- default incoming policy: `deny`
+- default outgoing policy: `allow`
+- SSH (`22/tcp`) allowed only from `firewall_dynamic:darth_ssh_sources`
+- Salt standard ports (`4505/tcp`, `4506/tcp`) allowed only from `firewall:salt:master_sources`
+
+`pillar/generated/darth_ssh_source.sls` stores Darth's current public egress IP as a `/32`. Because that IP is dynamic, the Salt master also gets a `redsalt-firewall-refresh.timer` that pulls the current generated pillar from the production GitHub branch over outbound HTTPS and reapplies only the firewall state when the source changes. This avoids the lockout problem where a new Darth IP could not SSH in to update a host after the old IP is denied.
 
 ## Quick start
 

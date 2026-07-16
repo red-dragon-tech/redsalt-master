@@ -62,6 +62,46 @@ sudo -u darthai test -d /home/darthai/.ssh
 sudo test -f /home/darthai/.ssh/authorized_keys
 ```
 
+## Firewall operations
+
+The base role manages UFW through `states/firewall/init.sls`. It intentionally resets unmanaged UFW rules when `firewall:reset_unmanaged` is true so broad allow rules do not survive highstate.
+
+Default managed policy:
+
+- deny incoming traffic by default
+- allow outgoing traffic by default
+- allow `22/tcp` only from Darth's current public `/32`
+- allow Salt ports `4505/tcp` and `4506/tcp` only from configured Salt master `/32` sources
+
+Preview/apply firewall only:
+
+```bash
+salt '<minion-id>' state.apply firewall test=True
+salt '<minion-id>' state.apply firewall
+```
+
+On the Salt master, the `redsalt-firewall-refresh.timer` maintains Darth's dynamic SSH source by pulling `pillar/generated/darth_ssh_source.sls` from the production GitHub branch over HTTPS and then applying the firewall state if the source changed:
+
+```bash
+systemctl status redsalt-firewall-refresh.timer
+systemctl start redsalt-firewall-refresh.service
+journalctl -u redsalt-firewall-refresh.service -n 100 --no-pager
+```
+
+Manual emergency update on the Salt master:
+
+```bash
+install -d -m 0755 /srv/redsalt-master/pillar/generated
+cat > /srv/redsalt-master/pillar/generated/darth_ssh_source.sls <<'EOF'
+firewall_dynamic:
+  darth_ssh_sources:
+    - X.X.X.X/32
+EOF
+salt-run fileserver.update
+salt '*' saltutil.refresh_pillar
+salt '*' state.apply firewall
+```
+
 ## vLLM service checks
 
 On the minion:

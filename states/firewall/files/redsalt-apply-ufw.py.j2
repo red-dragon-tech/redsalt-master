@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Apply the redsalt-managed UFW policy.
+
+This script is rendered by Salt with pillar data. It intentionally owns the UFW
+ruleset when firewall:reset_unmanaged is true so broad or manual allow rules do
+not survive highstate.
+"""
+from __future__ import annotations
+
+import hashlib
+import ipaddress
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+CONFIG = {{ firewall | json }}
+DYNAMIC = {{ firewall_dynamic | json }}
+STATE_DIR = Path('/var/lib/redsalt')
+STATE_FILE = STATE_DIR / 'ufw-policy.sha256'
+
+
+def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
+
+
+def fail(message: str) -> None:
+    print(f'changed=no comment={json.dumps(message)}')
+    raise SystemExit(1)
+
+
+def normalize_cidr(value: str) -> str:
+    try:
+        return str(ipaddress.ip_network(value, strict=False))
+    except ValueError as exc:
+        fail(f'invalid CIDR/source {value!r}: {exc}')
+
+
+def normalize_port(value) -> int:
+    try:
+        port = int(value)
+    except Exception as exc:
+        fail(f'invalid port {value!r}: {exc}')
+    if not 1 <= port <= 65535:
+        fail(f'invalid port {value!r}: outside 1-65535')
+    return port
+
+
+def desired_policy() -> dict:
+    ssh_cfg = CONFIG.get('ssh') or {}
+    salt_cfg = CONFIG.get('salt') or {}
+    dynamic_sources = DYNAMIC.get('darth_ssh_sources') or []
+    ssh_sources = dynamic_sources or ssh_cfg.get('allowed_sources') or []
+
+    policy = {
+        'enabled': bool(CONFIG.get('enabled', True)),
+        'reset_unmanaged': bool(CONFIG.get('reset_unmanaged', True)),
+        'default_incoming': CONFIG.get('default_incoming', 'deny'),
+        'default_outgoing': CONFIG.get('default_outgoing', 'allow'),
+        'ssh_port': normalize_port(ssh_cfg.get('port', 22)),
+        'ssh_sources': sorted({normalize_cidr(str(src)) for src in ssh_sources}),
+        'salt_ports': sorted({normalize_port(port) for port in (salt_cfg.get('master_ports') or [4505, 4506])}),
+        'salt_master_sources': sorted({normalize_cidr(str(src)) for src in (salt_cfg.get('master_sources') or [])}),
+    }
+    if policy['enabled'] and not policy['ssh_sources']:
+        fail('firewall is enabled but no Darth SSH source CIDRs are configured')
+    if policy['enabled'] and not policy['salt_master_sources']:
+        fail('firewall is enabled but no Salt master source CIDRs are configured')
+    return policy
+
+
+def policy_hash(policy: dict) -> str:
+    return hashlib.sha256(json.dumps(policy, sort_keys=True).encode()).hexdigest()
+
+
+def ufw_active() -> bool:
+    proc = run(['ufw', 'status'], check=False)
+    return proc.returncode == 0 and 'Status: active' in proc.stdout
+
+
+def apply(policy: dict) -> None:
+    if not policy['enabled']:
+        run(['ufw', '--force', 'disable'])
+        return
+
+    if policy['reset_unmanaged']:
+        run(['ufw', '--force', 'reset'])
+
+    run(['ufw', 'default', policy['default_incoming'], 'incoming'])
+    run(['ufw', 'default', policy['default_outgoing'], 'outgoing'])
+
+    for source in policy['ssh_sources']:
+        run([
+            'ufw', 'allow', 'proto', 'tcp', 'from', source, 'to', 'any',
+            'port', str(policy['ssh_port']), 'comment', 'redsalt-darth-ssh',
+        ])
+
+    for source in policy['salt_master_sources']:
+        for port in policy['salt_ports']:
+            run([
+                'ufw', 'allow', 'proto', 'tcp', 'from', source, 'to', 'any',
+                'port', str(port), 'comment', 'redsalt-salt-master',
+            ])
+
+    run(['ufw', '--force', 'enable'])
+
+
+def main() -> int:
+    policy = desired_policy()
+    digest = policy_hash(policy)
+    previous = STATE_FILE.read_text().strip() if STATE_FILE.exists() else ''
+    active = ufw_active()
+
+    if previous == digest and active:
+        print('changed=no comment="UFW policy already applied"')
+        return 0
+
+    apply(policy)
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(digest + '\n')
+    print('changed=yes comment="UFW policy applied"')
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
