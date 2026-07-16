@@ -9,4 +9,4 @@ base:
     - minions.example-vllm-node
 
   'mgmt.rdt.dev':
-    - minions.mgmt.rdt.dev
+    - minions.mgmt_rdt_dev

@@ -34,7 +34,7 @@ REQUIRED = [
     'pillar/firewall/defaults.sls',
     'pillar/generated/darth_ssh_source.sls',
     'pillar/roles/defaults.sls',
-    'pillar/minions/mgmt.rdt.dev.sls',
+    'pillar/minions/mgmt_rdt_dev.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',

@@ -27,7 +27,7 @@ systemctl restart salt-master
 
 ## Salt master production sync
 
-The management minion `mgmt.rdt.dev` has the `salt_master` role in `pillar/minions/mgmt.rdt.dev.sls`. That role manages `redsalt-master-sync.timer`, which runs every minute and:
+The management minion `mgmt.rdt.dev` has the `salt_master` role in `pillar/minions/mgmt_rdt_dev.sls`. That role manages `redsalt-master-sync.timer`, which runs every minute and:
 
 1. fetches `origin/prd` into `/srv/redsalt-master`
 2. fast-forwards the checkout when the production commit changes
