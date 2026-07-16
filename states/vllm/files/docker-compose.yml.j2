@@ -39,5 +39,5 @@ services:
       - --trust-remote-code
 {% endif %}
 {% for arg in vllm.get('extra_args', []) %}
-      - {{ arg }}
+      - {{ arg | json }}
 {% endfor %}
