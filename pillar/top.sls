@@ -10,3 +10,6 @@ base:
 
   'mgmt.rdt.dev':
     - minions.mgmt_rdt_dev
+
+  'rdt-llm':
+    - minions.rdt_llm

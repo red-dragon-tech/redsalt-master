@@ -11,12 +11,16 @@ firewall:
     allowed_sources:
       - 47.41.97.147/32
   salt:
-    # Salt's standard ZeroMQ master ports. Keep this list restricted to Salt master IPs.
+    # Salt's standard ZeroMQ master ports.
     master_ports:
       - 4505
       - 4506
+    # Sources allowed to connect to Salt ports on ordinary minions.
     master_sources:
       - 104.250.111.198/32
+    # Sources allowed to connect to Salt ports on hosts with roles:salt_master:true.
+    minion_sources:
+      - 104.250.123.194/32
   dynamic_update:
     enabled: true
     master_minion_id: mgmt.rdt.dev

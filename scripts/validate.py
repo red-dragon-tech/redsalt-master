@@ -35,6 +35,7 @@ REQUIRED = [
     'pillar/generated/darth_ssh_source.sls',
     'pillar/roles/defaults.sls',
     'pillar/minions/mgmt_rdt_dev.sls',
+    'pillar/minions/rdt_llm.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
@@ -141,6 +142,9 @@ def check_firewall() -> None:
     salt_sources = ((firewall.get('salt') or {}).get('master_sources') or [])
     if not all(str(source).endswith('/32') for source in salt_sources):
         fail('firewall salt master_sources must be tightly scoped /32 CIDRs')
+    minion_sources = ((firewall.get('salt') or {}).get('minion_sources') or [])
+    if not all(str(source).endswith('/32') for source in minion_sources):
+        fail('firewall salt minion_sources must be tightly scoped /32 CIDRs')
     salt_ports = set((firewall.get('salt') or {}).get('master_ports') or [])
     if salt_ports != {4505, 4506}:
         fail('firewall salt master_ports must be exactly 4505 and 4506')

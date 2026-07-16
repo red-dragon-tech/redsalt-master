@@ -1,5 +1,6 @@
 {% set firewall = salt['pillar.get']('firewall', {}) %}
 {% set dynamic = salt['pillar.get']('firewall_dynamic', {}) %}
+{% set roles = salt['pillar.get']('roles', {}) %}
 
 include:
   - firewall.refresh
@@ -19,6 +20,7 @@ redsalt-ufw-apply-script:
     - context:
         firewall: {{ firewall | json }}
         firewall_dynamic: {{ dynamic | json }}
+        roles: {{ roles | json }}
     - require:
       - pkg: ufw-package
 
