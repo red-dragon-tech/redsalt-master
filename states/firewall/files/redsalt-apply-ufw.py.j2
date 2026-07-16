@@ -51,6 +51,7 @@ def normalize_port(value) -> int:
 def desired_policy() -> dict:
     ssh_cfg = CONFIG.get('ssh') or {}
     salt_cfg = CONFIG.get('salt') or {}
+    web_cfg = CONFIG.get('web') or {}
     dynamic_sources = DYNAMIC.get('darth_ssh_sources') or []
     ssh_sources = dynamic_sources or ssh_cfg.get('allowed_sources') or []
     salt_sources = set(str(src) for src in (salt_cfg.get('master_sources') or []))
@@ -66,6 +67,7 @@ def desired_policy() -> dict:
         'ssh_sources': sorted({normalize_cidr(str(src)) for src in ssh_sources}),
         'salt_ports': sorted({normalize_port(port) for port in (salt_cfg.get('master_ports') or [4505, 4506])}),
         'salt_master_sources': sorted({normalize_cidr(str(src)) for src in salt_sources}),
+        'public_tcp_ports': sorted({normalize_port(port) for port in (web_cfg.get('public_tcp_ports') or [])}),
     }
     if policy['enabled'] and not policy['ssh_sources']:
         fail('firewall is enabled but no Darth SSH source CIDRs are configured')
@@ -106,6 +108,12 @@ def apply(policy: dict) -> None:
                 'ufw', 'allow', 'proto', 'tcp', 'from', source, 'to', 'any',
                 'port', str(port), 'comment', 'redsalt-salt-master',
             ])
+
+    for port in policy['public_tcp_ports']:
+        run([
+            'ufw', 'allow', 'proto', 'tcp', 'to', 'any', 'port', str(port),
+            'comment', 'redsalt-public-web',
+        ])
 
     run(['ufw', '--force', 'enable'])
 

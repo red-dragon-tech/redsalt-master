@@ -22,6 +22,7 @@ vllm:
   image: vllm/vllm-openai:latest
   service_name: vllm-openai
   port: 8000
+  bind_host: 127.0.0.1
   host: 0.0.0.0
   model: Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
   served_model_name: qwen2.5-coder-14b-awq
@@ -43,3 +44,19 @@ vllm:
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface
+
+firewall:
+  web:
+    public_tcp_ports:
+      - 80
+      - 443
+
+caddy:
+  enabled: true
+  service_name: caddy
+  acme_email: jason.lang@rdt.dev
+  servers:
+    - host: ai.redspectre.rdt.dev
+      upstream: 127.0.0.1:8000
+      encode: true
+      require_bearer_token: true

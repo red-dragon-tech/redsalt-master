@@ -1,0 +1,27 @@
+{% set servers = caddy.get('servers', []) %}
+{% set acme_email = caddy.get('acme_email') %}
+{% if acme_email %}
+{
+  email {{ acme_email }}
+}
+{% endif %}
+
+{% for server in servers %}
+{{ server.get('host') }} {
+{% if server.get('encode', True) %}
+  encode zstd gzip
+{% endif %}
+
+{% if server.get('require_bearer_token', True) %}
+  import /etc/caddy/rdt-llm-auth.caddy
+  handle @authorized {
+    reverse_proxy {{ server.get('upstream', '127.0.0.1:8000') }}
+  }
+
+  header Content-Type application/json
+  respond `{"error":{"message":"missing or invalid bearer token","type":"authentication_error"}}` 401
+{% else %}
+  reverse_proxy {{ server.get('upstream', '127.0.0.1:8000') }}
+{% endif %}
+}
+{% endfor %}

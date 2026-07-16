@@ -40,6 +40,8 @@ REQUIRED = [
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
     'states/common/init.sls',
+    'states/caddy/init.sls',
+    'states/caddy/files/Caddyfile.j2',
     'states/firewall/init.sls',
     'states/firewall/refresh.sls',
     'states/firewall/files/redsalt-apply-ufw.py.j2',

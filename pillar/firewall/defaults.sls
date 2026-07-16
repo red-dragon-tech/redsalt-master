@@ -21,6 +21,11 @@ firewall:
     # Sources allowed to connect to Salt ports on hosts with roles:salt_master:true.
     minion_sources:
       - 104.250.123.194/32
+  web:
+    # Public HTTP/HTTPS ports for hosts that terminate TLS locally.
+    # Opening 80 is needed for ACME HTTP-01 redirects/challenges; the app
+    # itself must still enforce auth at the reverse proxy layer.
+    public_tcp_ports: []
   dynamic_update:
     enabled: true
     master_minion_id: mgmt.rdt.dev
