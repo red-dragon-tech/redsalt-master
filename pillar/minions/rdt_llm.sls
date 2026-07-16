@@ -37,6 +37,9 @@ vllm:
     - --quantization
     - awq
     - --enforce-eager
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - hermes
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface
