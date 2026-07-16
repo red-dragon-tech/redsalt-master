@@ -26,7 +26,7 @@ vllm:
   model: Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
   served_model_name: qwen2.5-coder-14b-awq
   gpu_count: all
-  gpu_memory_utilization: 0.90
+  gpu_memory_utilization: 0.95
   max_model_len: 65536
   tensor_parallel_size: 1
   enable_prefix_caching: true
