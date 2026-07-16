@@ -36,8 +36,6 @@ vllm:
     - awq
     - --cpu-offload-gb
     - '16'
-    - --swap-space
-    - '16'
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface
