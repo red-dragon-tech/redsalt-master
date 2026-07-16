@@ -8,6 +8,7 @@ new Darth IP could not SSH in to update the firewall after the old IP is denied.
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import re
 import shutil
@@ -17,7 +18,7 @@ import tempfile
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-CONFIG = {{ update_config | json }}
+CONFIG = json.loads(r'''{{ update_config | json }}''')
 CIDR_RE = re.compile(r'(?<![0-9A-Fa-f:.])(?:[0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}(?![0-9A-Fa-f:.])')
 
 

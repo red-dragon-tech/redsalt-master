@@ -15,8 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-CONFIG = {{ firewall | json }}
-DYNAMIC = {{ firewall_dynamic | json }}
+CONFIG = json.loads(r'''{{ firewall | json }}''')
+DYNAMIC = json.loads(r'''{{ firewall_dynamic | json }}''')
 STATE_DIR = Path('/var/lib/redsalt')
 STATE_FILE = STATE_DIR / 'ufw-policy.sha256'
 
