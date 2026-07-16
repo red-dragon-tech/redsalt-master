@@ -1,8 +1,16 @@
+{% set roles = salt['pillar.get']('roles', {}) %}
 {
   "log-driver": "json-file",
   "log-opts": {
     "max-size": "100m",
     "max-file": "3"
   },
-  "storage-driver": "overlay2"
+  "storage-driver": "overlay2"{% if roles.get('nvidia', False) %},
+  "runtimes": {
+    "nvidia": {
+      "path": "nvidia-container-runtime",
+      "args": []
+    }
+  }
+  {% endif %}
 }
