@@ -23,7 +23,7 @@ vllm:
   service_name: vllm-openai
   port: 8000
   host: 0.0.0.0
-  model: Qwen/Qwen2.5-Coder-32B-Instruct-AWQ
+  model: xingyaoww/Qwen2.5-Coder-32B-Instruct-AWQ-128k
   served_model_name: qwen2.5-coder-32b-awq
   gpu_count: all
   gpu_memory_utilization: 0.90
