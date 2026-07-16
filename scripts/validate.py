@@ -34,6 +34,7 @@ REQUIRED = [
     'pillar/firewall/defaults.sls',
     'pillar/generated/darth_ssh_source.sls',
     'pillar/roles/defaults.sls',
+    'pillar/minions/mgmt.rdt.dev.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
@@ -42,6 +43,8 @@ REQUIRED = [
     'states/firewall/refresh.sls',
     'states/firewall/files/redsalt-apply-ufw.py.j2',
     'states/firewall/files/redsalt-refresh-darth-firewall-source.py.j2',
+    'states/redsalt_master_sync/init.sls',
+    'states/redsalt_master_sync/files/redsalt-sync-prd.sh',
     'states/users/init.sls',
     'states/docker/init.sls',
     'states/nvidia/init.sls',
@@ -52,7 +55,7 @@ REQUIRED = [
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',
 ]
-ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm'}
+ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master'}
 DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
 SECRET_PATTERNS = [
     re.compile(r'(?i)(api[_-]?key|token|password|secret)\s*[:=]\s*[A-Za-z0-9_./+=-]{20,}'),

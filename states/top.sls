@@ -14,3 +14,7 @@ base:
   'roles:llm_vllm:true':
     - match: pillar
     - roles.llm_vllm
+
+  'roles:salt_master:true':
+    - match: pillar
+    - roles.salt_master

@@ -25,6 +25,28 @@ Then restart the Salt master:
 systemctl restart salt-master
 ```
 
+## Salt master production sync
+
+The management minion `mgmt.rdt.dev` has the `salt_master` role in `pillar/minions/mgmt.rdt.dev.sls`. That role manages `redsalt-master-sync.timer`, which runs every minute and:
+
+1. fetches `origin/prd` into `/srv/redsalt-master`
+2. fast-forwards the checkout when the production commit changes
+3. runs `scripts/validate.py`
+4. runs `salt-run fileserver.update`
+5. refreshes pillar data for all minions
+6. applies highstate to all minions
+
+The timer records the last successfully applied production SHA in `/var/lib/redsalt/last-prd-apply.sha`, so unchanged ticks are no-ops. Logs are written to `/var/log/redsalt-master-sync.log`.
+
+Inspect or force a sync:
+
+```bash
+systemctl list-timers redsalt-master-sync.timer --all
+systemctl status redsalt-master-sync.service
+systemctl start redsalt-master-sync.service
+tail -200 /var/log/redsalt-master-sync.log
+```
+
 ## Rollout workflow
 
 1. Add or update host pillar under `pillar/minions/<minion-id>.sls`.

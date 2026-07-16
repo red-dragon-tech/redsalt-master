@@ -38,9 +38,11 @@ roles:
   docker: true
   nvidia: true
   llm_vllm: true
+  salt_master: false
 ```
 
 Role composition states live in `states/roles/` and keep `states/top.sls` small.
+The `salt_master` role is reserved for the management host; it installs a frequent systemd timer that fast-forwards `/srv/redsalt-master` to `origin/prd`, validates the repo, refreshes Salt fileserver/pillar data, and applies highstate when the production commit changes.
 
 ## Managed SSH access
 
