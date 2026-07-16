@@ -31,11 +31,17 @@ REQUIRED = [
     'docs/security.md',
     'pillar/top.sls',
     'pillar/common/defaults.sls',
+    'pillar/firewall/defaults.sls',
+    'pillar/generated/darth_ssh_source.sls',
     'pillar/roles/defaults.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
     'states/common/init.sls',
+    'states/firewall/init.sls',
+    'states/firewall/refresh.sls',
+    'states/firewall/files/redsalt-apply-ufw.py.j2',
+    'states/firewall/files/redsalt-refresh-darth-firewall-source.py.j2',
     'states/users/init.sls',
     'states/docker/init.sls',
     'states/nvidia/init.sls',
@@ -117,6 +123,35 @@ def check_managed_users() -> None:
         fail('states/roles/base.sls must include users state')
 
 
+def check_firewall() -> None:
+    firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
+    firewall = firewall_defaults.get('firewall') or {}
+    if firewall.get('enabled') is not True:
+        fail('pillar/firewall/defaults.sls must enable firewall by default')
+    if firewall.get('default_incoming') != 'deny':
+        fail('firewall default_incoming must be deny')
+    if firewall.get('default_outgoing') != 'allow':
+        fail('firewall default_outgoing must be allow')
+    ssh_sources = ((firewall.get('ssh') or {}).get('allowed_sources') or [])
+    if not any(str(source).endswith('/32') for source in ssh_sources):
+        fail('firewall ssh allowed_sources must contain at least one /32 fallback')
+    salt_sources = ((firewall.get('salt') or {}).get('master_sources') or [])
+    if not all(str(source).endswith('/32') for source in salt_sources):
+        fail('firewall salt master_sources must be tightly scoped /32 CIDRs')
+    salt_ports = set((firewall.get('salt') or {}).get('master_ports') or [])
+    if salt_ports != {4505, 4506}:
+        fail('firewall salt master_ports must be exactly 4505 and 4506')
+
+    dynamic = load_yaml(ROOT / 'pillar/generated/darth_ssh_source.sls') or {}
+    darth_sources = ((dynamic.get('firewall_dynamic') or {}).get('darth_ssh_sources') or [])
+    if not any(str(source).endswith('/32') for source in darth_sources):
+        fail('generated Darth SSH source pillar must contain at least one /32 source')
+
+    base_role = (ROOT / 'states/roles/base.sls').read_text()
+    if '- firewall' not in base_role:
+        fail('states/roles/base.sls must include firewall state')
+
+
 def check_no_obvious_secrets() -> None:
     skip_dirs = {'.git', '__pycache__', '.pytest_cache'}
     for path in ROOT.rglob('*'):
@@ -134,6 +169,7 @@ def main() -> int:
     check_jinja()
     check_roles()
     check_managed_users()
+    check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
     return 0

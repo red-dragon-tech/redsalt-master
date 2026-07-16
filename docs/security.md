@@ -28,6 +28,15 @@ When secrets are needed, prefer one of these patterns:
 
 vLLM is an OpenAI-compatible API and should not be exposed directly to the public internet without authentication, TLS, rate limits, and logging. Bind or firewall service ports to LAN/VPN by default.
 
+## Host firewall baseline
+
+`roles.base` enables UFW and denies inbound traffic by default. The managed allowlist is intentionally narrow:
+
+- SSH (`22/tcp`) only from Darth's current public IPv4 `/32`, supplied by generated pillar.
+- Salt standard ports (`4505/tcp`, `4506/tcp`) only from configured Salt master IPv4 `/32` sources.
+
+Do not broaden these CIDRs in committed pillar unless there is an explicit operational requirement. If Darth's public IP changes, update `pillar/generated/darth_ssh_source.sls` in the production branch so the Salt master can pull it outbound and reapply firewall rules without requiring inbound SSH from the new address first.
+
 ## Grains and targeting
 
 Do not use grains as an authorization boundary. Grains are minion-controlled. Use pillar for intended roles and keep sensitive policy on the master side.
