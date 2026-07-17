@@ -27,6 +27,7 @@ except Exception:  # pragma: no cover - compatibility with older vLLM layouts
 
 _TOOL_BLOCK_RE = re.compile(r"<tools>\s*([\s\S]*?)\s*</tools>", re.IGNORECASE)
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*([\s\S]*?)\s*```$", re.IGNORECASE)
+_JSON_FENCE_ANYWHERE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
 
 def _as_tool_call_tags(payload: object) -> str:
@@ -69,16 +70,33 @@ def _normalize_qwen25_auto_tool_call(text: str) -> str:
         return normalized
 
     stripped = text.strip()
+    candidate_payloads: list[str] = []
+
+    # Exact fenced JSON, e.g. ```json\n{"name":"tool",...}\n```.
     fence_match = _JSON_FENCE_RE.match(stripped)
     if fence_match:
-        stripped = fence_match.group(1).strip()
+        candidate_payloads.append(fence_match.group(1).strip())
 
+    # Prose followed by a fenced JSON tool request is a common Qwen2.5-Coder
+    # auto-tool shape ("I'll use the tool:" + ```json ... ```). vLLM's
+    # parser sees the whole message; extract the fenced payload and discard
+    # surrounding prose only if the payload is a valid tool-call object/list.
+    for match in _JSON_FENCE_ANYWHERE_RE.finditer(text):
+        payload = match.group(1).strip()
+        if payload not in candidate_payloads:
+            candidate_payloads.append(payload)
+
+    # Bare JSON object/list with no prose.
     if stripped.startswith("{") or stripped.startswith("["):
+        candidate_payloads.append(stripped)
+
+    for payload_text in candidate_payloads:
         try:
-            rendered = _as_tool_call_tags(json.loads(stripped))
+            rendered = _as_tool_call_tags(json.loads(payload_text))
         except Exception:
-            return text
-        return rendered or text
+            continue
+        if rendered:
+            return rendered
 
     return text
 
