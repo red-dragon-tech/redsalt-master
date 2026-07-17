@@ -26,6 +26,7 @@ except Exception:  # pragma: no cover - compatibility with older vLLM layouts
 
 
 _TOOL_BLOCK_RE = re.compile(r"<tools>\s*([\s\S]*?)\s*</tools>", re.IGNORECASE)
+_JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*([\s\S]*?)\s*```$", re.IGNORECASE)
 
 
 def _as_tool_call_tags(payload: object) -> str:
@@ -68,6 +69,10 @@ def _normalize_qwen25_auto_tool_call(text: str) -> str:
         return normalized
 
     stripped = text.strip()
+    fence_match = _JSON_FENCE_RE.match(stripped)
+    if fence_match:
+        stripped = fence_match.group(1).strip()
+
     if stripped.startswith("{") or stripped.startswith("["):
         try:
             rendered = _as_tool_call_tags(json.loads(stripped))
