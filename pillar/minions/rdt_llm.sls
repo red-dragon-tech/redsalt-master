@@ -39,8 +39,12 @@ vllm:
     - awq
     - --enforce-eager
     - --enable-auto-tool-choice
+    - --tool-parser-plugin
+    - /opt/redsalt/vllm/qwen25_coder_tool_parser.py
     - --tool-call-parser
-    - hermes
+    - qwen25_coder
+    - --chat-template
+    - /opt/redsalt/vllm/qwen25_coder_tool_chat_template.jinja
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface

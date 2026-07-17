@@ -10,6 +10,8 @@ services:
     volumes:
       - {{ model_path }}:/models:ro
       - {{ hf_cache }}:/root/.cache/huggingface
+      - {{ vllm.get('compose_dir', '/opt/redsalt/vllm') }}/qwen25_coder_tool_parser.py:/opt/redsalt/vllm/qwen25_coder_tool_parser.py:ro
+      - {{ vllm.get('compose_dir', '/opt/redsalt/vllm') }}/qwen25_coder_tool_chat_template.jinja:/opt/redsalt/vllm/qwen25_coder_tool_chat_template.jinja:ro
     deploy:
       resources:
         reservations:

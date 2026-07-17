@@ -45,6 +45,26 @@ vllm-env-file:
     - context:
         vllm: {{ vllm | json }}
 
+vllm-qwen25-coder-tool-parser:
+  file.managed:
+    - name: {{ compose_dir }}/qwen25_coder_tool_parser.py
+    - source: salt://vllm/files/qwen25_coder_tool_parser.py
+    - user: root
+    - group: root
+    - mode: '0644'
+    - require:
+      - file: vllm-compose-directory
+
+vllm-qwen25-coder-tool-chat-template:
+  file.managed:
+    - name: {{ compose_dir }}/qwen25_coder_tool_chat_template.jinja
+    - source: salt://vllm/files/qwen25_coder_tool_chat_template.jinja
+    - user: root
+    - group: root
+    - mode: '0644'
+    - require:
+      - file: vllm-compose-directory
+
 vllm-compose-file:
   file.managed:
     - name: {{ compose_dir }}/docker-compose.yml
@@ -62,6 +82,8 @@ vllm-compose-file:
       - file: vllm-env-file
       - file: model-storage-directory
       - file: vllm-hf-cache-directory
+      - file: vllm-qwen25-coder-tool-parser
+      - file: vllm-qwen25-coder-tool-chat-template
 
 vllm-systemd-unit:
   file.managed:
@@ -94,3 +116,5 @@ vllm-service:
       - file: vllm-compose-file
       - file: vllm-env-file
       - file: vllm-systemd-unit
+      - file: vllm-qwen25-coder-tool-parser
+      - file: vllm-qwen25-coder-tool-chat-template
