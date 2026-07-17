@@ -1,12 +1,15 @@
 """vLLM tool parser for Qwen2.5-Coder auto tool calls.
 
-Qwen2.5-Coder sometimes emits the intended function-call object as:
+Qwen2.5-Coder sometimes emits the intended function-call object as wrappers
+such as:
 
     <tools>
     {"name": "...", "arguments": {...}}
     </tools>
 
-instead of the canonical Hermes/Qwen `<tool_call>...</tool_call>` wrapper.
+or `<json>...</json>`, fenced JSON, bare JSON, or prose followed by
+fenced JSON, instead of the canonical Hermes/Qwen `<tool_call>...</tool_call>`
+wrapper.
 This parser keeps the normal Hermes/Qwen behavior and normalizes that observed
 auto-call shape into `<tool_call>` so vLLM returns OpenAI-compatible
 `message.tool_calls` instead of assistant text.
@@ -26,6 +29,7 @@ except Exception:  # pragma: no cover - compatibility with older vLLM layouts
 
 
 _TOOL_BLOCK_RE = re.compile(r"<tools>\s*([\s\S]*?)\s*</tools>", re.IGNORECASE)
+_JSON_BLOCK_RE = re.compile(r"<json>\s*([\s\S]*?)\s*</json>", re.IGNORECASE)
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*([\s\S]*?)\s*```$", re.IGNORECASE)
 _JSON_FENCE_ANYWHERE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
@@ -66,6 +70,7 @@ def _normalize_qwen25_auto_tool_call(text: str) -> str:
         return rendered or match.group(0)
 
     normalized = _TOOL_BLOCK_RE.sub(replace_block, text)
+    normalized = _JSON_BLOCK_RE.sub(replace_block, normalized)
     if "<tool_call>" in normalized:
         return normalized
 
