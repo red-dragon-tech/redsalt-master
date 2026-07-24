@@ -36,6 +36,7 @@ REQUIRED = [
     'pillar/roles/defaults.sls',
     'pillar/minions/mgmt_rdt_dev.sls',
     'pillar/minions/rdt_llm.sls',
+    'pillar/minions/rdt_kali.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
     'states/top.sls',
@@ -46,6 +47,7 @@ REQUIRED = [
     'states/firewall/refresh.sls',
     'states/firewall/files/redsalt-apply-ufw.py.j2',
     'states/firewall/files/redsalt-refresh-darth-firewall-source.py.j2',
+    'states/kali_workstation/init.sls',
     'states/redsalt_master_sync/init.sls',
     'states/redsalt_master_sync/files/redsalt-sync-prd.sh',
     'states/users/init.sls',
@@ -58,7 +60,7 @@ REQUIRED = [
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',
 ]
-ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master'}
+ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master', 'kali_workstation'}
 DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
 SECRET_PATTERNS = [
     re.compile(r'(?i)(api[_-]?key|token|password|secret)\s*[:=]\s*[A-Za-z0-9_./+=-]{20,}'),
@@ -150,6 +152,14 @@ def check_firewall() -> None:
     salt_ports = set((firewall.get('salt') or {}).get('master_ports') or [])
     if salt_ports != {4505, 4506}:
         fail('firewall salt master_ports must be exactly 4505 and 4506')
+
+    kali_pillar = load_yaml(ROOT / 'pillar/minions/rdt_kali.sls') or {}
+    kali_roles = kali_pillar.get('roles') or {}
+    if kali_roles.get('kali_workstation') is not True:
+        fail('rdt_kali pillar must enable roles:kali_workstation')
+    kali_salt_sources = (((kali_pillar.get('firewall') or {}).get('salt') or {}).get('master_sources') or [])
+    if '10.10.10.0/24' not in [str(source) for source in kali_salt_sources]:
+        fail('rdt_kali pillar must allow the private LAN Salt master/source CIDR 10.10.10.0/24')
 
     dynamic = load_yaml(ROOT / 'pillar/generated/darth_ssh_source.sls') or {}
     darth_sources = ((dynamic.get('firewall_dynamic') or {}).get('darth_ssh_sources') or [])

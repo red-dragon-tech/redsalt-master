@@ -18,3 +18,7 @@ base:
   'roles:salt_master:true':
     - match: pillar
     - roles.salt_master
+
+  'roles:kali_workstation:true':
+    - match: pillar
+    - roles.kali_workstation

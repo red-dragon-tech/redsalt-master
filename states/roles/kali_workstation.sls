@@ -1,0 +1,2 @@
+include:
+  - kali_workstation

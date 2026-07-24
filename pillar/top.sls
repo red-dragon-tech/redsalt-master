@@ -13,3 +13,6 @@ base:
 
   'rdt-llm':
     - minions.rdt_llm
+
+  'rdt-kali':
+    - minions.rdt_kali
