@@ -31,7 +31,7 @@ kali-shared-repo-dir-{{ repo_index }}:
 kali-shared-repo-git-shared-{{ repo_index }}:
   cmd.run:
     - name: git -C {{ repo_path | json }} config core.sharedRepository group
-    - onlyif: test -d {{ repo_path | json }}/.git
+    - onlyif: test -d {{ repo_path }}/.git
     - require:
       - file: kali-shared-repo-dir-{{ repo_index }}
 
@@ -41,6 +41,7 @@ kali-git-safe-directory-{{ repo_index }}-{{ user }}:
     - name: git config --global --add safe.directory {{ repo_path | json }}
     - runas: {{ user }}
     - unless: git config --global --get-all safe.directory | grep -Fx {{ repo_path | json }}
+    - onlyif: test -d {{ repo_path }}/.git
     - require:
       - file: kali-shared-repo-dir-{{ repo_index }}
 {% endfor %}
