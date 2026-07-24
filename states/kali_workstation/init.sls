@@ -12,12 +12,13 @@ kali-shared-root:
     - makedirs: True
 
 {% for repo in shared_repos %}
+{% set repo_index = loop.index %}
 {% set repo_path = repo.get('path') %}
 {% set repo_owner = repo.get('owner', 'root') %}
 {% set repo_group = repo.get('group', 'users') %}
 {% set safe_users = repo.get('safe_directory_users', []) %}
 {% if repo_path %}
-kali-shared-repo-dir-{{ loop.index }}:
+kali-shared-repo-dir-{{ repo_index }}:
   file.directory:
     - name: {{ repo_path }}
     - user: {{ repo_owner }}
@@ -27,21 +28,21 @@ kali-shared-repo-dir-{{ loop.index }}:
     - require:
       - file: kali-shared-root
 
-kali-shared-repo-git-shared-{{ loop.index }}:
+kali-shared-repo-git-shared-{{ repo_index }}:
   cmd.run:
     - name: git -C {{ repo_path | json }} config core.sharedRepository group
     - onlyif: test -d {{ repo_path | json }}/.git
     - require:
-      - file: kali-shared-repo-dir-{{ loop.index }}
+      - file: kali-shared-repo-dir-{{ repo_index }}
 
 {% for user in safe_users %}
-kali-git-safe-directory-{{ loop.parent.index }}-{{ user }}:
+kali-git-safe-directory-{{ repo_index }}-{{ user }}:
   cmd.run:
     - name: git config --global --add safe.directory {{ repo_path | json }}
     - runas: {{ user }}
     - unless: git config --global --get-all safe.directory | grep -Fx {{ repo_path | json }}
     - require:
-      - file: kali-shared-repo-dir-{{ loop.parent.index }}
+      - file: kali-shared-repo-dir-{{ repo_index }}
 {% endfor %}
 {% endif %}
 {% endfor %}

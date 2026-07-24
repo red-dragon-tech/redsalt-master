@@ -28,6 +28,13 @@ common:
     - /etc/redsalt
     - /opt/shared
 
+firewall_dynamic:
+  # Override the global public-only Darth source for this LAN workstation so
+  # the active Hermes host can still SSH after UFW is managed.
+  darth_ssh_sources:
+    - 10.10.10.184/32
+    - 47.41.97.147/32
+
 firewall:
   salt:
     # rdt-kali is on the same private LAN as the Hermes/Kali operator path.
