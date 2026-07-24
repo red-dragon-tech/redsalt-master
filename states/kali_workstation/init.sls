@@ -77,16 +77,22 @@ kali-shell-helpers-{{ user }}-{{ shell_file }}:
     - marker_start: '# BEGIN managed by redsalt kali workstation helpers'
     - marker_end: '# END managed by redsalt kali workstation helpers'
     - append_if_not_found: True
-    - create: True
-    - user: {{ user }}
-    - group: {{ user }}
-    - mode: '0644'
     - content: |
         alias kali-repo='cd /opt/shared/kali-linux'
         alias cdkali='cd /opt/shared/kali-linux'
         alias kali-status='git -C /opt/shared/kali-linux status --short --branch'
         alias kali-pull='git -C /opt/shared/kali-linux pull --ff-only'
         alias kali-files='find /opt/shared/kali-linux -maxdepth 2 -type f | sort | sed "s#^#/##" | head -200'
+
+kali-shell-helpers-permissions-{{ user }}-{{ shell_file }}:
+  file.managed:
+    - name: {{ home }}/{{ shell_file }}
+    - user: {{ user }}
+    - group: {{ user }}
+    - mode: '0644'
+    - replace: False
+    - require:
+      - file: kali-shell-helpers-{{ user }}-{{ shell_file }}
 {% endfor %}
 {% endif %}
 {% endfor %}
