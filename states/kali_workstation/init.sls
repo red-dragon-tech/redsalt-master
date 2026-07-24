@@ -31,6 +31,7 @@ kali-shared-repo-dir-{{ repo_index }}:
 kali-shared-repo-git-shared-{{ repo_index }}:
   cmd.run:
     - name: git -C {{ repo_path | json }} config core.sharedRepository group
+    - runas: {{ repo_owner }}
     - onlyif: test -d {{ repo_path }}/.git
     - require:
       - file: kali-shared-repo-dir-{{ repo_index }}
