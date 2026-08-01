@@ -50,6 +50,8 @@ REQUIRED = [
     'states/kali_workstation/init.sls',
     'states/redsalt_master_sync/init.sls',
     'states/redsalt_master_sync/files/redsalt-sync-prd.sh',
+    'states/redsalt_highstate_convergence/init.sls',
+    'states/redsalt_highstate_convergence/files/redsalt-highstate-convergence.py',
     'states/users/init.sls',
     'states/docker/init.sls',
     'states/nvidia/init.sls',

@@ -47,6 +47,33 @@ systemctl start redsalt-master-sync.service
 tail -200 /var/log/redsalt-master-sync.log
 ```
 
+## Recurring highstate convergence
+
+The Salt master role also manages `redsalt-highstate-convergence.timer`. This is separate from `redsalt-master-sync.timer`: sync deploys approved `prd` changes quickly, while convergence verifies/corrects drift on a recurring schedule even when `prd` has not changed.
+
+Default behavior:
+
+- runs daily around `04:20` with up to `45min` randomized delay
+- prevents overlap with `redsalt-master-sync.service`
+- runs non-master minions through the master with `--batch-size 1`
+- runs `mgmt.rdt.dev` self-highstate with foreground `salt-call` to reduce Salt master event/return overhead
+- creates temporary swap for self-highstate only if the master has less than 1GiB RAM
+- writes compact status JSON under `/var/lib/redsalt/highstate-status/`
+- logs to `/var/log/redsalt-highstate-convergence.log`
+- prints only on failure, so external monitoring can remain failure-only
+
+Inspect or force convergence:
+
+```bash
+systemctl list-timers redsalt-highstate-convergence.timer --all
+systemctl status redsalt-highstate-convergence.service
+systemctl start redsalt-highstate-convergence.service
+ls -l /var/lib/redsalt/highstate-status/
+cat /var/lib/redsalt/highstate-status/summary.json
+journalctl -u redsalt-highstate-convergence.service -n 100 --no-pager
+tail -200 /var/log/redsalt-highstate-convergence.log
+```
+
 ## Rollout workflow
 
 1. Add or update host pillar under `pillar/minions/<minion-id>.sls`.
