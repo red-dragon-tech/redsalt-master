@@ -4,6 +4,7 @@ base:
     - firewall.defaults
     - generated.darth_ssh_source
     - roles.defaults
+    - restic_backup.defaults
 
   'example-vllm-node':
     - minions.example-vllm-node

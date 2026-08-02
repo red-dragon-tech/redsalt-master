@@ -8,6 +8,39 @@ roles:
   llm_vllm: false
   salt_master: false
   kali_workstation: true
+  restic_backup: true
+
+restic_backup:
+  enabled: false
+  tags:
+    - rdt-kali
+    - kali-workstation
+  includes:
+    - /etc
+    - /root
+    - /home
+    - /opt
+    - /usr/local
+    - /var/lib
+    - /var/spool/cron
+    # Reviewed Kali evidence/artifact paths belong here when created.
+    # Keep reconstructable tool caches and large wordlists excluded by default.
+  excludes:
+    - /proc
+    - /sys
+    - /dev
+    - /run
+    - /tmp
+    - /var/tmp
+    - /var/cache
+    - /var/log/*.log
+    - /var/lib/docker/overlay2
+    - /var/lib/containerd
+    - /var/lib/kubelet
+    - /usr/share/wordlists
+    - /opt/shared/kali-linux/.git
+    - lost+found
+    - '*.cache'
 
 common:
   timezone: America/Chicago

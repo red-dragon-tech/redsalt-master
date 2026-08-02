@@ -22,3 +22,7 @@ base:
   'roles:kali_workstation:true':
     - match: pillar
     - roles.kali_workstation
+
+  'roles:restic_backup:true':
+    - match: pillar
+    - roles.restic_backup

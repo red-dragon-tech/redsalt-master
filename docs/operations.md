@@ -151,6 +151,36 @@ salt '*' saltutil.refresh_pillar
 salt '*' state.apply firewall
 ```
 
+## Restic backup operations
+
+The `restic_backup` role is opt-in per minion. Phase 1 uses manual root-only host-local secrets:
+
+```text
+/etc/restic/backup.env       root:root 0600
+/etc/restic/password         root:root 0600
+```
+
+`backup.env` must define:
+
+```bash
+export B2_ACCOUNT_ID='...'
+export B2_ACCOUNT_KEY='...'
+export RESTIC_REPOSITORY='b2:<bucket>:salt-restic/<minion-id>'
+```
+
+Do not paste real values into Git, pillar, issues, or logs. Each host should have a unique restic repository password and a per-host/prefix-scoped B2 key with `deleteFiles` so `forget --prune` can work.
+
+Canary sequence per host:
+
+```bash
+salt '<minion-id>' state.apply restic_backup test=True
+salt '<minion-id>' state.apply restic_backup
+salt '<minion-id>' cmd.run '/usr/local/sbin/rdt-restic-backup'
+salt '<minion-id>' cmd.run 'systemctl status rdt-restic-backup.timer --no-pager'
+```
+
+Only after the manual backup, `restic check`, and a small restore test succeed should `restic_backup:enabled: true` be set for that minion. Healthy scheduled backups are silent; failures print concise output for Slack error-only alerting.
+
 ## vLLM service checks
 
 On the minion:

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run RDT restic backup
+
+[Timer]
+OnCalendar={{ schedule }}
+RandomizedDelaySec={{ randomized_delay }}
+Persistent=true
+AccuracySec={{ accuracy }}
+
+[Install]
+WantedBy=timers.target
