@@ -4,6 +4,29 @@ roles:
   nvidia: true
   llm_vllm: true
   salt_master: false
+  restic_backup: true
+
+restic_backup:
+  enabled: false
+  tags:
+    - rdt-llm
+    - llm-vllm
+  excludes:
+    - /proc
+    - /sys
+    - /dev
+    - /run
+    - /tmp
+    - /var/tmp
+    - /var/cache
+    - /var/log/*.log
+    - /var/lib/docker/overlay2
+    - /var/lib/containerd
+    - /var/lib/kubelet
+    - /opt/models
+    - /var/cache/huggingface
+    - lost+found
+    - '*.cache'
 
 models:
   path: /opt/models

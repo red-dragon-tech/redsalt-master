@@ -5,3 +5,4 @@ roles:
   llm_vllm: false
   salt_master: false
   kali_workstation: false
+  restic_backup: false

@@ -24,6 +24,15 @@ When secrets are needed, prefer one of these patterns:
 3. Vault or another `ext_pillar` backend.
 4. Host-local files provisioned outside this repo and referenced by path.
 
+For phase-1 fleet restic backups, use option 4: manual root-only host-local files. Salt may create placeholders and enforce `0600`, but B2 application keys and restic repository passwords must be provisioned out-of-band and must not be committed to plain pillar or GitHub issues.
+
+Restic backup policy decisions:
+
+- Use one unique restic repository password per host.
+- Use one non-master B2 application key per host/prefix where practical.
+- Permit `deleteFiles` on those scoped keys so `restic forget --prune` works.
+- Treat immutable/copy-bucket backups as a later enhancement with separate credentials.
+
 ## Network exposure
 
 vLLM is an OpenAI-compatible API and should not be exposed directly to the public internet without authentication, TLS, rate limits, and logging. Bind or firewall service ports to LAN/VPN by default.

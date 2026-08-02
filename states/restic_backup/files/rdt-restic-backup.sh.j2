@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ENV_FILE="{{ env_file }}"
+PASSWORD_FILE="{{ password_file }}"
+INCLUDES_FILE="{{ includes_file }}"
+EXCLUDES_FILE="{{ excludes_file }}"
+LOG_FILE="{{ log_file }}"
+LOCK_FILE="{{ lock_file }}"
+HOST_ID="$(hostname -f 2>/dev/null || hostname || echo unknown-host)"
+STARTED_AT="$(date -Is)"
+KEEP_DAILY="{{ retention.get('daily', 14) }}"
+KEEP_WEEKLY="{{ retention.get('weekly', 8) }}"
+KEEP_MONTHLY="{{ retention.get('monthly', 12) }}"
+CHECK_SUBSET="{{ check_read_data_subset }}"
+MAX_SNAPSHOT_AGE_HOURS="{{ max_snapshot_age_hours }}"
+
+mkdir -p "$(dirname "$LOG_FILE")" "$(dirname "$LOCK_FILE")"
+touch "$LOG_FILE"
+chmod 0600 "$LOG_FILE"
+
+if [ -f "$LOG_FILE" ] && [ "$(wc -c < "$LOG_FILE")" -gt 2097152 ]; then
+  tail -c 1048576 "$LOG_FILE" > "${LOG_FILE}.tmp" && mv "${LOG_FILE}.tmp" "$LOG_FILE"
+  chmod 0600 "$LOG_FILE"
+fi
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "RDT restic backup already running on ${HOST_ID}; lock: ${LOCK_FILE}"
+  exit 1
+fi
+
+run_log() {
+  printf '\n[%s] %s\n' "$(date -Is)" "$*" >> "$LOG_FILE"
+  "$@" >> "$LOG_FILE" 2>&1
+}
+
+alert_failure() {
+  local exit_code=$?
+  local finished_at
+  finished_at="$(date -Is)"
+  {
+    echo "🚨 RDT restic backup failed"
+    echo "Host: ${HOST_ID}"
+    echo "Started: ${STARTED_AT}"
+    echo "Finished: ${finished_at}"
+    echo "Exit code: ${exit_code}"
+    echo "Repository: ${RESTIC_REPOSITORY:-unset}"
+    echo "Log: ${LOG_FILE}"
+    echo
+    echo "Recent log tail:"
+    tail -80 "$LOG_FILE" 2>/dev/null || true
+  }
+  exit "$exit_code"
+}
+trap alert_failure ERR
+
+if [ ! -r "$ENV_FILE" ]; then
+  echo "RDT restic backup env file is missing or unreadable: ${ENV_FILE}"
+  exit 1
+fi
+if [ ! -r "$PASSWORD_FILE" ]; then
+  echo "RDT restic backup password file is missing or unreadable: ${PASSWORD_FILE}"
+  exit 1
+fi
+if grep -qx 'REPLACE_WITH_UNIQUE_RESTIC_PASSWORD_FOR_THIS_HOST' "$PASSWORD_FILE"; then
+  echo "RDT restic backup password file still contains the Salt placeholder: ${PASSWORD_FILE}"
+  exit 1
+fi
+if [ ! -s "$PASSWORD_FILE" ]; then
+  echo "RDT restic backup password file is empty: ${PASSWORD_FILE}"
+  exit 1
+fi
+if [ ! -s "$INCLUDES_FILE" ]; then
+  echo "RDT restic backup includes file is missing or empty: ${INCLUDES_FILE}"
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+export RESTIC_PASSWORD_FILE="$PASSWORD_FILE"
+
+if [ -z "${B2_ACCOUNT_ID:-}" ] || [ -z "${B2_ACCOUNT_KEY:-}" ] || [ -z "${RESTIC_REPOSITORY:-}" ]; then
+  echo "RDT restic backup env file is incomplete: ${ENV_FILE}"
+  exit 1
+fi
+if grep -Eq "^[[:space:]]*#?[[:space:]]*export[[:space:]]+(B2_ACCOUNT_ID|B2_ACCOUNT_KEY|RESTIC_REPOSITORY)=['\".]*(\.\.\.|<bucket>|<minion-id>)" "$ENV_FILE"; then
+  echo "RDT restic backup env file still contains placeholder values: ${ENV_FILE}"
+  exit 1
+fi
+
+{
+  echo
+  echo "========== RDT restic backup started ${STARTED_AT} =========="
+  echo "Host: ${HOST_ID}"
+  echo "Repository: ${RESTIC_REPOSITORY}"
+} >> "$LOG_FILE"
+
+run_log restic unlock
+
+mapfile -t includes < <(grep -Ev '^[[:space:]]*(#|$)' "$INCLUDES_FILE")
+if [ "{% raw %}${#includes[@]}{% endraw %}" -eq 0 ]; then
+  echo "RDT restic backup has no include paths after filtering ${INCLUDES_FILE}"
+  exit 1
+fi
+
+backup_cmd=(restic backup "${includes[@]}" --host "$HOST_ID" --tag salt{% for tag in tags %} --tag {{ tag | json }}{% endfor %} --exclude-file "$EXCLUDES_FILE" --exclude-caches)
+run_log "${backup_cmd[@]}"
+
+run_log restic forget \
+  --host "$HOST_ID" \
+  --tag salt \
+  --keep-daily "$KEEP_DAILY" \
+  --keep-weekly "$KEEP_WEEKLY" \
+  --keep-monthly "$KEEP_MONTHLY" \
+  --prune
+
+run_log restic check --read-data-subset="$CHECK_SUBSET"
+
+LATEST_JSON="$(restic snapshots --host "$HOST_ID" --tag salt --latest 1 --json)"
+python3 - "$LATEST_JSON" "$MAX_SNAPSHOT_AGE_HOURS" <<'PY' >> "$LOG_FILE" 2>&1
+import json, sys
+from datetime import datetime, timezone
+snapshots = json.loads(sys.argv[1])
+max_age = float(sys.argv[2])
+if not snapshots:
+    raise SystemExit('no snapshots found after backup')
+latest = snapshots[-1]
+ts = datetime.fromisoformat(latest['time'].replace('Z', '+00:00'))
+age_hours = (datetime.now(timezone.utc) - ts).total_seconds() / 3600
+print(f"latest snapshot: {latest.get('short_id', latest.get('id', 'unknown'))} age_hours={age_hours:.2f}")
+if age_hours > max_age:
+    raise SystemExit(f'latest snapshot is unexpectedly old: {age_hours:.2f} hours > {max_age:.2f}')
+PY
+
+{
+  echo "========== RDT restic backup completed $(date -Is) =========="
+} >> "$LOG_FILE"
+
+# Silent success: monitoring delivers stdout only when this script prints.
+exit 0

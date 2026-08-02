@@ -39,10 +39,13 @@ roles:
   nvidia: true
   llm_vllm: true
   salt_master: false
+  restic_backup: false
 ```
 
 Role composition states live in `states/roles/` and keep `states/top.sls` small.
 The `salt_master` role is reserved for the management host; it installs a frequent systemd timer that fast-forwards `/srv/redsalt-master` to `origin/prd`, validates the repo, refreshes Salt fileserver/pillar data, and applies highstate when the production commit changes.
+
+The optional `restic_backup` role installs a restic + Backblaze B2 backup scaffold. It is disabled by default and intentionally uses manual root-only host-local secret files for phase 1. Salt manages the file modes, include/exclude lists, script, and systemd units, but backups should only be enabled after each minion has a unique repository password and per-host/prefix-scoped B2 application key provisioned.
 
 ## Managed SSH access
 

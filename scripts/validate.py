@@ -34,6 +34,7 @@ REQUIRED = [
     'pillar/firewall/defaults.sls',
     'pillar/generated/darth_ssh_source.sls',
     'pillar/roles/defaults.sls',
+    'pillar/restic_backup/defaults.sls',
     'pillar/minions/mgmt_rdt_dev.sls',
     'pillar/minions/rdt_llm.sls',
     'pillar/minions/rdt_kali.sls',
@@ -52,6 +53,10 @@ REQUIRED = [
     'states/redsalt_master_sync/files/redsalt-sync-prd.sh',
     'states/redsalt_highstate_convergence/init.sls',
     'states/redsalt_highstate_convergence/files/redsalt-highstate-convergence.py',
+    'states/restic_backup/init.sls',
+    'states/restic_backup/files/rdt-restic-backup.sh.j2',
+    'states/restic_backup/files/restic-backup.service.j2',
+    'states/restic_backup/files/restic-backup.timer.j2',
     'states/users/init.sls',
     'states/docker/init.sls',
     'states/nvidia/init.sls',
@@ -62,7 +67,7 @@ REQUIRED = [
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',
 ]
-ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master', 'kali_workstation'}
+ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master', 'kali_workstation', 'restic_backup'}
 DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
 SECRET_PATTERNS = [
     re.compile(r'(?i)(api[_-]?key|token|password|secret)\s*[:=]\s*[A-Za-z0-9_./+=-]{20,}'),
@@ -133,6 +138,44 @@ def check_managed_users() -> None:
         fail('states/roles/base.sls must include users state')
 
 
+def check_restic_backup() -> None:
+    defaults = load_yaml(ROOT / 'pillar/restic_backup/defaults.sls') or {}
+    cfg = defaults.get('restic_backup') or {}
+    if cfg.get('enabled') is not False:
+        fail('restic_backup defaults must keep backups disabled until per-host secrets are provisioned')
+    retention = cfg.get('retention') or {}
+    if retention.get('daily') != 14 or retention.get('weekly') != 8 or retention.get('monthly') != 12:
+        fail('restic_backup retention must default to 14 daily / 8 weekly / 12 monthly')
+    includes = [str(x) for x in (cfg.get('includes') or [])]
+    for required in ['/etc', '/root', '/home', '/opt', '/usr/local', '/var/lib', '/var/spool/cron']:
+        if required not in includes:
+            fail(f'restic_backup default includes missing {required}')
+    excludes = [str(x) for x in (cfg.get('excludes') or [])]
+    for required in ['/var/lib/docker/overlay2', '/var/lib/containerd', '/var/lib/kubelet']:
+        if required not in excludes:
+            fail(f'restic_backup default excludes missing {required}')
+
+    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
+    llm_excludes = [str(x) for x in ((rdt_llm.get('restic_backup') or {}).get('excludes') or [])]
+    if '/opt/models' not in llm_excludes or '/var/cache/huggingface' not in llm_excludes:
+        fail('rdt_llm restic_backup must exclude model/cache paths by default')
+    rdt_kali = load_yaml(ROOT / 'pillar/minions/rdt_kali.sls') or {}
+    kali_restic = rdt_kali.get('restic_backup') or {}
+    if 'rdt-kali' not in [str(x) for x in (kali_restic.get('tags') or [])]:
+        fail('rdt_kali restic_backup must tag snapshots with rdt-kali')
+    if '/usr/share/wordlists' not in [str(x) for x in (kali_restic.get('excludes') or [])]:
+        fail('rdt_kali restic_backup must exclude large wordlists by default')
+
+    script = (ROOT / 'states/restic_backup/files/rdt-restic-backup.sh.j2').read_text()
+    for required in ['flock -n', 'RESTIC_PASSWORD_FILE', 'forget', '--prune', 'check --read-data-subset']:
+        if required not in script:
+            fail(f'restic backup script missing required behavior: {required}')
+    state = (ROOT / 'states/restic_backup/init.sls').read_text()
+    for required in ['replace: False', 'mode: \'0600\'', 'service.dead']:
+        if required not in state:
+            fail(f'restic_backup state missing safe manual-secret behavior: {required}')
+
+
 def check_firewall() -> None:
     firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
     firewall = firewall_defaults.get('firewall') or {}
@@ -190,6 +233,7 @@ def main() -> int:
     check_jinja()
     check_roles()
     check_managed_users()
+    check_restic_backup()
     check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
