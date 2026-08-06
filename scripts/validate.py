@@ -63,6 +63,7 @@ REQUIRED = [
     'states/models/init.sls',
     'states/vllm/init.sls',
     'states/vllm/files/docker-compose.yml.j2',
+    'states/vllm/files/clear-corrupt-triton-cache.sh.j2',
     'states/vllm/files/vllm.env.j2',
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',

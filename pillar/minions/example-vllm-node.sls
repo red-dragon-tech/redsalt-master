@@ -34,3 +34,4 @@ vllm:
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface
+  triton_cache: /var/cache/triton

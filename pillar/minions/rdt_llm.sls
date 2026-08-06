@@ -50,13 +50,11 @@ vllm:
   model: Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
   served_model_name: qwen2.5-coder-14b-awq
   gpu_count: all
-  gpu_memory_utilization: 0.93
-  max_model_len: 64000
+  gpu_memory_utilization: 0.88
+  max_model_len: 32768
   tensor_parallel_size: 1
   enable_prefix_caching: true
   trust_remote_code: false
-  env_vars:
-    VLLM_ALLOW_LONG_MAX_MODEL_LEN: '1'
   extra_args:
     - --quantization
     - awq
@@ -71,6 +69,7 @@ vllm:
   compose_dir: /opt/redsalt/vllm
   env_file: /etc/redsalt/vllm.env
   hf_cache: /var/cache/huggingface
+  triton_cache: /var/cache/triton
 
 firewall:
   web:

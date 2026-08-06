@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Managed by Salt/redsalt: clear corrupted Triton JIT metadata before vLLM starts.
+set -Eeuo pipefail
+
+TRITON_HOST_DIR={{ triton_cache | json }}
+CACHE_DIR="${TRITON_HOST_DIR}/cache"
+
+mkdir -p "${CACHE_DIR}"
+
+if find "${CACHE_DIR}" -type f -name '*.json' -size 0 -print -quit | grep -q .; then
+  ts=$(date +%Y%m%d-%H%M%S)
+  mv "${CACHE_DIR}" "${CACHE_DIR}.bad.${ts}"
+  mkdir -p "${CACHE_DIR}"
+fi
