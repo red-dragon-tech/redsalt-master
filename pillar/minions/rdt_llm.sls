@@ -47,10 +47,10 @@ vllm:
   port: 8000
   bind_host: 127.0.0.1
   host: 0.0.0.0
-  model: Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
-  served_model_name: qwen2.5-coder-14b-awq
+  model: Qwen/Qwen2.5-Coder-32B-Instruct-AWQ
+  served_model_name: qwen2.5-coder-32b-awq
   gpu_count: all
-  gpu_memory_utilization: 0.88
+  gpu_memory_utilization: 0.92
   max_model_len: 32768
   tensor_parallel_size: 1
   enable_prefix_caching: true
@@ -63,7 +63,7 @@ vllm:
     - --tool-parser-plugin
     - /opt/redsalt/vllm/qwen25_coder_tool_parser.py
     - --tool-call-parser
-    - qwen25_coder
+    - qwen
     - --chat-template
     - /opt/redsalt/vllm/qwen25_coder_tool_chat_template.jinja
   compose_dir: /opt/redsalt/vllm
