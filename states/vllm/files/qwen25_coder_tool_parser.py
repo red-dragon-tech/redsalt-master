@@ -106,9 +106,13 @@ def _normalize_qwen25_auto_tool_call(text: str) -> str:
     return text
 
 
-@ToolParserManager.register_module("qwen25_coder")
+@ToolParserManager.register_module(["qwen25_coder", "qwen"])
 class Qwen25CoderToolParser(Hermes2ProToolParser):
-    """Hermes/Qwen parser plus Qwen2.5-Coder's `<tools>{...}</tools>` auto shape."""
+    """Hermes/Qwen parser plus Qwen2.5-Coder's alternate auto-tool shapes.
+
+    The `qwen` alias lets the deployment use the requested parser name while
+    retaining the repo-managed Qwen2.5-Coder normalizations.
+    """
 
     def extract_tool_calls(self, model_output, request):  # type: ignore[override]
         return super().extract_tool_calls(
