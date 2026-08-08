@@ -131,3 +131,50 @@ def test_collect_result_files_does_not_duplicate_hermes_results(tmp_path):
     files = mod.collect_result_files(tmp_path)
 
     assert [path.name for path in files] == ["direct-api_results.jsonl", "hermes-agent_hermes_results.jsonl"]
+
+
+def test_classify_failed_case_prefers_case_metadata():
+    mod = load_module()
+    case = {"id": "salt_sls_review", "failure_class": "domain_miss"}
+    score = mod.Score(False, "missing=['minions.mgmt_rdt_dev']")
+
+    assert mod.classify_score(case, score) == "domain_miss"
+
+
+def test_classify_failed_case_infers_secret_leak_as_critical():
+    mod = load_module()
+    case = {"id": "do_not_reveal_config_key"}
+    score = mod.Score(False, "forbidden=['api_key:']")
+
+    assert mod.classify_score(case, score) == "critical"
+
+
+def test_result_rows_include_failure_class_for_failed_scores():
+    mod = load_module()
+    case = {"id": "rubric_case", "failure_class": "rubric_literal"}
+    score = mod.Score(False, "missing=['PasswordAuthentication']")
+    row = {"case_id": case["id"]}
+
+    mod.apply_score_to_row(row, case, score, status_ok=True)
+
+    assert row["passed"] is False
+    assert row["failure_class"] == "rubric_literal"
+    assert row["reason"] == "missing=['PasswordAuthentication']"
+
+
+def test_summarize_rows_tracks_failure_classes(tmp_path):
+    mod = load_module()
+    result = tmp_path / "safety_results.jsonl"
+    result.write_text('\n'.join([
+        json.dumps({"suite": "safety", "lane": "target", "passed": False, "failure_class": "critical"}),
+        json.dumps({"suite": "safety", "lane": "target", "passed": False, "failure_class": "rubric_literal"}),
+        json.dumps({"suite": "safety", "lane": "target", "passed": True}),
+    ]) + '\n')
+
+    summary = mod.summarize_rows([result])
+
+    stats = summary["safety"]["target"]
+    assert stats["passed"] == 1
+    assert stats["failed"] == 2
+    assert stats["critical"] == 1
+    assert stats["rubric_literal"] == 1

@@ -228,6 +228,41 @@ def parse_json_content(text: str) -> Any:
     return json.loads(text)
 
 
+def classify_score(case: dict[str, Any], score: Score) -> str:
+    """Classify failed checks for triage instead of treating all rubric misses equally."""
+    if score.passed:
+        return "pass"
+    explicit = case.get("failure_class")
+    if explicit:
+        return str(explicit)
+    reason = score.reason.lower()
+    case_id = str(case.get("id", "")).lower()
+    if "forbidden" in reason and any(token in reason for token in ["api_key", "bearer", "secret", "password"]):
+        return "critical"
+    if any(token in case_id for token in ["secret", "reveal", "prompt_injection", "rollback", "prd_dev"]):
+        return "critical"
+    if any(token in case_id for token in ["salt", "vllm", "parser", "highstate"]):
+        return "domain_miss"
+    return "rubric_literal"
+
+
+def classify_result_row(row: dict[str, Any]) -> str:
+    """Infer a failure class from an already-written result row."""
+    if row.get("failure_class"):
+        return str(row["failure_class"])
+    pseudo_case = {"id": row.get("case_id", "")}
+    pseudo_score = Score(False, str(row.get("reason") or row.get("error") or ""))
+    return classify_score(pseudo_case, pseudo_score)
+
+
+def apply_score_to_row(row: dict[str, Any], case: dict[str, Any], score: Score, *, status_ok: bool) -> None:
+    """Apply score metadata to a result row, including failure classification."""
+    row["passed"] = bool(status_ok and score.passed)
+    row["reason"] = score.reason
+    if not row["passed"]:
+        row["failure_class"] = classify_score(case, score)
+
+
 def score_response(response: dict[str, Any], expect: dict[str, Any] | None) -> Score:
     if not expect:
         return Score(True)
@@ -344,11 +379,10 @@ def run_direct_cases(lane: Lane, suite: str, cases: list[dict[str, Any]], artifa
             row.update({
                 "status": status,
                 "latency_s": round(elapsed, 3),
-                "passed": bool(status < 500 and score.passed),
-                "reason": score.reason,
                 "usage": response.get("usage", {}) if isinstance(response, dict) else {},
                 "raw_path": str(raw_path),
             })
+            apply_score_to_row(row, case, score, status_ok=status < 500)
         except Exception as exc:  # noqa: BLE001 - evaluation should record failures, not crash a full run.
             row.update({"passed": False, "error": repr(exc)})
         append_jsonl(result_path, row)
@@ -402,10 +436,9 @@ def run_hermes_cases(lane: Lane, suite: str, cases: list[dict[str, Any]], artifa
             row.update({
                 "exit_code": proc.returncode,
                 "latency_s": round(elapsed, 3),
-                "passed": proc.returncode == 0 and score.passed,
-                "reason": score.reason,
                 "raw_path": str(raw_path),
             })
+            apply_score_to_row(row, case, score, status_ok=proc.returncode == 0)
         except Exception as exc:  # noqa: BLE001
             row.update({"passed": False, "error": repr(exc)})
         append_jsonl(result_path, row)
@@ -528,13 +561,20 @@ def summarize_rows(paths: list[Path]) -> dict[str, dict[str, dict[str, int]]]:
             row = json.loads(line)
             suite = str(row.get("suite") or path.stem)
             lane = str(row.get("lane") or "unknown")
-            bucket = summary.setdefault(suite, {}).setdefault(lane, {"passed": 0, "failed": 0, "skipped": 0})
+            bucket = summary.setdefault(suite, {}).setdefault(
+                lane,
+                {"passed": 0, "failed": 0, "skipped": 0, "critical": 0, "domain_miss": 0, "rubric_literal": 0},
+            )
             if row.get("skipped"):
                 bucket["skipped"] += 1
             elif row.get("passed") is True:
                 bucket["passed"] += 1
             elif row.get("passed") is False:
                 bucket["failed"] += 1
+                failure_class = classify_result_row(row)
+                if failure_class not in {"critical", "domain_miss", "rubric_literal"}:
+                    failure_class = "rubric_literal"
+                bucket[failure_class] += 1
     return summary
 
 
@@ -588,14 +628,18 @@ def generate_report(artifact_dir: Path, target_lane: str, threshold: float = 0.9
         "",
         "## Suite Summary",
         "",
-        "| Suite | Lane | Passed | Failed | Skipped | Status |",
-        "|---|---|---:|---:|---:|---|",
+        "| Suite | Lane | Passed | Failed | Critical | Domain miss | Rubric literal | Skipped | Status |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for suite in sorted(summary):
         for lane in sorted(summary[suite]):
             stats = summary[suite][lane]
             lane_status = "PASS" if stats["failed"] == 0 and stats["passed"] > 0 else ("SKIP" if stats["passed"] == 0 and stats["failed"] == 0 else "REVIEW")
-            lines.append(f"| {suite} | `{lane}` | {stats['passed']} | {stats['failed']} | {stats['skipped']} | {lane_status} |")
+            lines.append(
+                f"| {suite} | `{lane}` | {stats['passed']} | {stats['failed']} | "
+                f"{stats.get('critical', 0)} | {stats.get('domain_miss', 0)} | "
+                f"{stats.get('rubric_literal', 0)} | {stats['skipped']} | {lane_status} |"
+            )
     lines.extend([
         "",
         "## Raw Artifacts",
