@@ -9,6 +9,7 @@ venv/
 .cache/
 *.retry
 *.log
+evals/rdt_llm/artifacts/
 
 # Secrets and operator-local overrides
 *.secret.sls
