@@ -51,13 +51,21 @@ vllm:
   served_model_name: qwen2.5-coder-32b-awq
   gpu_count: all
   gpu_memory_utilization: 0.92
-  max_model_len: 32768
+  max_model_len: 64000
   tensor_parallel_size: 1
   enable_prefix_caching: true
   trust_remote_code: false
+  env_vars:
+    VLLM_ALLOW_LONG_MAX_MODEL_LEN: '1'
   extra_args:
     - --quantization
     - awq
+    - --kv-cache-dtype
+    - fp8
+    - --cpu-offload-gb
+    - '8'
+    - --hf-overrides
+    - '{"rope_parameters":{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}}'
     - --enforce-eager
     - --enable-auto-tool-choice
     - --tool-parser-plugin
