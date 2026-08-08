@@ -1,0 +1,3 @@
+{"id":"terminal_tool_smoke","category":"hermes_agent","hermes_prompt":"Run a local shell command to print exactly RDT_LOCAL_TOOL_OK, then respond with only the command output.","expect":{"content_exact":"RDT_LOCAL_TOOL_OK"}}
+{"id":"context_only_no_tool_needed","category":"hermes_agent","hermes_prompt":"Use only this prompt context. The marker is RDT_CONTEXT_ONLY_OK. Reply with only the marker.","expect":{"content_exact":"RDT_CONTEXT_ONLY_OK"}}
+{"id":"ops_model_evidence","category":"hermes_agent","hermes_prompt":"Check whether rdt-llm is serving the expected model qwen2.5-coder-32b-awq and summarize the evidence concisely.","expect":{"must_include":["qwen2.5-coder-32b-awq"],"must_not_include":["API key"]}}

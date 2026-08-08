@@ -1,0 +1,36 @@
+lanes:
+  target:
+    provider: rdt-llm
+    model: qwen2.5-coder-32b-awq
+  baselines:
+    - provider: nous
+      model: openai/gpt-5.5
+    - provider: openai-api
+      model: gpt-5.5
+  historical_local_baseline:
+    provider: rdt-llm
+    model: qwen2.5-coder-14b-awq
+    enabled: false
+    reason: Jason requested no previous-model restore for this evaluation.
+suites:
+  - health
+  - api_compatibility
+  - tool_calling
+  - coding
+  - hermes_agent
+  - long_context
+  - ops_reasoning
+  - safety
+  - stability
+thresholds:
+  target_required_pass_rate: 0.95
+  deterministic_required_pass_rate: 1.0
+  max_tool_call_failures: 0
+  max_recent_error_log_lines: 0
+  max_container_restarts: 0
+load_policy:
+  notify: slack
+  allow_business_hours_load: false
+  max_business_hours_concurrency: 2
+fixtures:
+  use_real_redsalt_docs: true
