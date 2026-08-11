@@ -90,6 +90,10 @@ caddy:
   service_name: caddy
   acme_email: jason.lang@rdt.dev
   servers:
+    - host: llm.ai.rdt.dev
+      upstream: 127.0.0.1:8000
+      encode: true
+      require_bearer_token: true
     - host: ai.redspectre.rdt.dev
       upstream: 127.0.0.1:8000
       encode: true

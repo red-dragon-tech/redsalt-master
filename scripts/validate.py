@@ -177,6 +177,25 @@ def check_restic_backup() -> None:
             fail(f'restic_backup state missing safe manual-secret behavior: {required}')
 
 
+def check_rdt_llm_caddy_hosts() -> None:
+    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
+    servers = ((rdt_llm.get('caddy') or {}).get('servers') or [])
+    hosts = [str(server.get('host')) for server in servers]
+    if 'llm.ai.rdt.dev' not in hosts:
+        fail('rdt_llm Caddy pillar must include primary host llm.ai.rdt.dev')
+    if 'ai.redspectre.rdt.dev' not in hosts:
+        fail('rdt_llm Caddy pillar must keep legacy host ai.redspectre.rdt.dev during DNS migration')
+
+    for host in ['llm.ai.rdt.dev', 'ai.redspectre.rdt.dev']:
+        server = next((item for item in servers if item.get('host') == host), None)
+        if not server:
+            fail(f'rdt_llm Caddy pillar missing server entry for {host}')
+        if server.get('upstream') != '127.0.0.1:8000':
+            fail(f'rdt_llm Caddy host {host} must proxy to 127.0.0.1:8000')
+        if server.get('require_bearer_token') is not True:
+            fail(f'rdt_llm Caddy host {host} must require bearer token')
+
+
 def check_firewall() -> None:
     firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
     firewall = firewall_defaults.get('firewall') or {}
@@ -235,6 +254,7 @@ def main() -> int:
     check_roles()
     check_managed_users()
     check_restic_backup()
+    check_rdt_llm_caddy_hosts()
     check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
