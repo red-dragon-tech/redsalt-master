@@ -196,6 +196,34 @@ def check_rdt_llm_caddy_hosts() -> None:
             fail(f'rdt_llm Caddy host {host} must require bearer token')
 
 
+def check_rdt_llm_model_config() -> None:
+    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
+    vllm = rdt_llm.get('vllm') or {}
+    if vllm.get('model') != 'Qwen/Qwen3.5-Coder-32B-Instruct-FP8':
+        fail('rdt_llm vllm.model must use Qwen/Qwen3.5-Coder-32B-Instruct-FP8')
+    if vllm.get('served_model_name') != 'qwen3.5-coder-32b-instruct-fp8':
+        fail('rdt_llm served_model_name must be qwen3.5-coder-32b-instruct-fp8')
+    if vllm.get('gpu_memory_utilization') != 0.92:
+        fail('rdt_llm gpu_memory_utilization must be 0.92')
+    if vllm.get('max_model_len') != 64000:
+        fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
+    if vllm.get('enable_prefix_caching') is not True:
+        fail('rdt_llm must enable prefix caching')
+    extra_args = [str(arg) for arg in (vllm.get('extra_args') or [])]
+    for required in ['--enable-auto-tool-choice', '--tool-call-parser', 'qwen']:
+        if required not in extra_args:
+            fail(f'rdt_llm extra_args missing required vLLM tool-call setting: {required}')
+    for stale in ['--quantization', '--hf-overrides', '--cpu-offload-gb', '--enforce-eager']:
+        if stale in extra_args:
+            fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
+    if '--rope-scaling' not in extra_args:
+        fail('rdt_llm extra_args must include --rope-scaling for the 64k Hermes compatibility target')
+    if '--kv-cache-dtype' not in extra_args or 'fp8' not in extra_args:
+        fail('rdt_llm extra_args must keep fp8 KV cache for the 64k Hermes compatibility target')
+    if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':
+        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for the 64k Hermes compatibility target')
+
+
 def check_firewall() -> None:
     firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
     firewall = firewall_defaults.get('firewall') or {}
@@ -255,6 +283,7 @@ def main() -> int:
     check_managed_users()
     check_restic_backup()
     check_rdt_llm_caddy_hosts()
+    check_rdt_llm_model_config()
     check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')

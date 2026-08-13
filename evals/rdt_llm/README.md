@@ -4,11 +4,11 @@ This directory contains a repeatable evaluation harness for the production `rdt-
 
 ## Target and baselines
 
-- Target: `rdt-llm/qwen2.5-coder-32b-awq`
+- Target: `rdt-llm/qwen3.5-coder-32b-instruct-fp8`
 - Baselines from current Hermes config:
   - `nous/openai/gpt-5.5`
   - `openai-api/gpt-5.5`
-- Historical local model `qwen2.5-coder-14b-awq` is not restored or tested by default, per issue #9 comments.
+- Historical local model `qwen2.5-coder-32b-awq` is not restored or tested by default after the Qwen3.5 FP8 rollout.
 
 ## What is tested
 
@@ -19,7 +19,7 @@ This directory contains a repeatable evaluation harness for the production `rdt-
 - Hermes CLI end-to-end agent/tool dispatch
 - Coding and Salt/RDT ops reasoning prompts
 - Safety and prompt-injection handling
-- Long-context marker retrieval up to the configured model window
+- Long-context marker retrieval up to the 64k Hermes compatibility window
 - Stability smoke with business-hours load protection
 
 ## Run
