@@ -213,11 +213,11 @@ def check_rdt_llm_model_config() -> None:
     for required in ['--enable-auto-tool-choice', '--tool-call-parser', 'qwen']:
         if required not in extra_args:
             fail(f'rdt_llm extra_args missing required vLLM tool-call setting: {required}')
-    for stale in ['--quantization', '--cpu-offload-gb', '--enforce-eager']:
+    for stale in ['--quantization', '--hf-overrides', '--cpu-offload-gb', '--enforce-eager']:
         if stale in extra_args:
             fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
-    if '--hf-overrides' not in extra_args:
-        fail('rdt_llm extra_args must include --hf-overrides for the 64k Hermes compatibility target')
+    if '--rope-scaling' not in extra_args:
+        fail('rdt_llm extra_args must include --rope-scaling for the 64k Hermes compatibility target')
     if '--kv-cache-dtype' not in extra_args or 'fp8' not in extra_args:
         fail('rdt_llm extra_args must keep fp8 KV cache for the 64k Hermes compatibility target')
     if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':

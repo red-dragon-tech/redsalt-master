@@ -41,12 +41,11 @@ def test_rdt_llm_removes_awq_specific_tuning_but_keeps_long_context_scaling():
     assert "--quantization" not in extra_args
     assert "--cpu-offload-gb" not in extra_args
     assert "--enforce-eager" not in extra_args
-    assert "--hf-overrides" in extra_args
-    overrides = yaml.safe_load(extra_args[extra_args.index("--hf-overrides") + 1])
-    rope = overrides["rope_parameters"]
-    assert rope["rope_type"] == "yarn"
-    assert rope["factor"] == 4.0
-    assert rope["original_max_position_embeddings"] == 32768
+    assert "--rope-scaling" in extra_args
+    rope_scaling = yaml.safe_load(extra_args[extra_args.index("--rope-scaling") + 1])
+    assert rope_scaling["rope_type"] == "yarn"
+    assert rope_scaling["factor"] == 4.0
+    assert rope_scaling["original_max_position_embeddings"] == 32768
     assert "--kv-cache-dtype" in extra_args
     assert extra_args[extra_args.index("--kv-cache-dtype") + 1] == "fp8"
 
