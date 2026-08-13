@@ -78,6 +78,12 @@ def test_rdt_llm_keeps_native_vllm_tool_call_flags():
     assert "--chat-template" in extra_args
 
 
+def test_qwen_chat_template_prefills_empty_thinking_block():
+    template = (ROOT / "states" / "vllm" / "files" / "qwen25_coder_tool_chat_template.jinja").read_text()
+
+    assert "<think>\\n\\n</think>\\n\\n" in template
+
+
 def test_rdt_llm_caddy_serves_new_dns_name_and_legacy_host():
     caddy = rdt_llm_caddy()
     hosts = {server["host"]: server for server in caddy["servers"]}

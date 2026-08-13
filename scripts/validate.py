@@ -242,6 +242,10 @@ def check_rdt_llm_model_config() -> None:
         if stale in extra_args:
             fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
 
+    template = (ROOT / 'states/vllm/files/qwen25_coder_tool_chat_template.jinja').read_text()
+    if '<think>\\n\\n</think>\\n\\n' not in template:
+        fail('Qwen chat template must prefill an empty think block to suppress thinking output')
+
 
 def check_firewall() -> None:
     firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
