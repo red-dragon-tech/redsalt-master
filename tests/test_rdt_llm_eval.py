@@ -21,7 +21,7 @@ def test_redact_secrets_recursively():
     mod = load_module()
     data = {
         "api_key": "should-not-leak",
-        "nested": {"token": "also-secret", "model": "qwen2.5-coder-32b-awq"},
+        "nested": {"token": "also-secret", "model": "qwen3.5-35b-a3b-gptq-int4"},
         "items": [{"password": "hidden"}, {"base_url": "https://example.test/v1"}],
     }
 
@@ -32,7 +32,7 @@ def test_redact_secrets_recursively():
     assert redacted["api_key"] == "<redacted>"
     assert redacted["has_api_key"] is True
     assert redacted["nested"]["token"] == "<redacted>"
-    assert redacted["nested"]["model"] == "qwen2.5-coder-32b-awq"
+    assert redacted["nested"]["model"] == "qwen3.5-35b-a3b-gptq-int4"
     assert redacted["items"][0]["password"] == "<redacted>"
     assert redacted["items"][1]["base_url"] == "https://example.test/v1"
 
@@ -118,7 +118,7 @@ def test_manifest_tracks_current_target_and_baselines():
     data = load_module().load_yaml_file(manifest_path)
 
     assert data["lanes"]["target"]["provider"] == "rdt-llm"
-    assert data["lanes"]["target"]["model"] == "qwen2.5-coder-32b-awq"
+    assert data["lanes"]["target"]["model"] == "qwen3.5-35b-a3b-gptq-int4"
     assert {lane["provider"] for lane in data["lanes"]["baselines"]} == {"nous", "openai-api"}
     assert data["thresholds"]["target_required_pass_rate"] == 0.95
 

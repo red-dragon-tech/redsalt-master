@@ -4,11 +4,11 @@ This directory contains a repeatable evaluation harness for the production `rdt-
 
 ## Target and baselines
 
-- Target: `rdt-llm/qwen2.5-coder-32b-awq`
+- Target: `rdt-llm/qwen3.5-35b-a3b-gptq-int4`
 - Baselines from current Hermes config:
   - `nous/openai/gpt-5.5`
   - `openai-api/gpt-5.5`
-- Historical local model `qwen2.5-coder-14b-awq` is not restored or tested by default, per issue #9 comments.
+- Historical local model `qwen2.5-coder-32b-awq` is not restored or tested by default after the Qwen3.5 GPTQ rollout.
 
 ## What is tested
 
