@@ -196,6 +196,45 @@ def check_rdt_llm_caddy_hosts() -> None:
             fail(f'rdt_llm Caddy host {host} must require bearer token')
 
 
+def check_rdt_llm_model_config() -> None:
+    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
+    vllm = rdt_llm.get('vllm') or {}
+    if vllm.get('model') != 'Qwen/Qwen3.5-35B-A3B-GPTQ-Int4':
+        fail('rdt_llm vllm.model must use Qwen/Qwen3.5-35B-A3B-GPTQ-Int4')
+    if vllm.get('served_model_name') != 'qwen3.5-35b-a3b-gptq-int4':
+        fail('rdt_llm served_model_name must be qwen3.5-35b-a3b-gptq-int4')
+    if vllm.get('gpu_memory_utilization') != 0.92:
+        fail('rdt_llm gpu_memory_utilization must be 0.92')
+    if vllm.get('max_model_len') != 64000:
+        fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
+    if vllm.get('enable_prefix_caching') is not True:
+        fail('rdt_llm must enable prefix caching')
+    if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':
+        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for the 64k Hermes compatibility target')
+    extra_args = [str(arg) for arg in (vllm.get('extra_args') or [])]
+    expected_pairs = {
+        '--quantization': 'gptq_marlin',
+        '--dtype': 'bfloat16',
+        '--kv-cache-dtype': 'fp8',
+        '--tool-call-parser': 'qwen',
+    }
+    for flag, value in expected_pairs.items():
+        if flag not in extra_args:
+            fail(f'rdt_llm extra_args missing required setting: {flag}')
+        try:
+            actual = extra_args[extra_args.index(flag) + 1]
+        except IndexError:
+            fail(f'rdt_llm extra_args missing value for {flag}')
+        if actual != value:
+            fail(f'rdt_llm extra_args {flag} must be {value}, got {actual}')
+    for required in ['--enable-auto-tool-choice', '--hf-overrides']:
+        if required not in extra_args:
+            fail(f'rdt_llm extra_args missing required setting: {required}')
+    for stale in ['--cpu-offload-gb', '--enforce-eager', 'awq']:
+        if stale in extra_args:
+            fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
+
+
 def check_firewall() -> None:
     firewall_defaults = load_yaml(ROOT / 'pillar/firewall/defaults.sls') or {}
     firewall = firewall_defaults.get('firewall') or {}
@@ -255,6 +294,7 @@ def main() -> int:
     check_managed_users()
     check_restic_backup()
     check_rdt_llm_caddy_hosts()
+    check_rdt_llm_model_config()
     check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')

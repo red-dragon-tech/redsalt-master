@@ -47,8 +47,8 @@ vllm:
   port: 8000
   bind_host: 127.0.0.1
   host: 0.0.0.0
-  model: Qwen/Qwen2.5-Coder-32B-Instruct-AWQ
-  served_model_name: qwen2.5-coder-32b-awq
+  model: Qwen/Qwen3.5-35B-A3B-GPTQ-Int4
+  served_model_name: qwen3.5-35b-a3b-gptq-int4
   gpu_count: all
   gpu_memory_utilization: 0.92
   max_model_len: 64000
@@ -59,14 +59,13 @@ vllm:
     VLLM_ALLOW_LONG_MAX_MODEL_LEN: '1'
   extra_args:
     - --quantization
-    - awq
+    - gptq_marlin
+    - --dtype
+    - bfloat16
     - --kv-cache-dtype
     - fp8
-    - --cpu-offload-gb
-    - '8'
     - --hf-overrides
     - '{"rope_parameters":{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}}'
-    - --enforce-eager
     - --enable-auto-tool-choice
     - --tool-parser-plugin
     - /opt/redsalt/vllm/qwen25_coder_tool_parser.py

@@ -1,7 +1,7 @@
 lanes:
   target:
     provider: rdt-llm
-    model: qwen2.5-coder-32b-awq
+    model: qwen3.5-35b-a3b-gptq-int4
   baselines:
     - provider: nous
       model: openai/gpt-5.5
@@ -9,9 +9,9 @@ lanes:
       model: gpt-5.5
   historical_local_baseline:
     provider: rdt-llm
-    model: qwen2.5-coder-14b-awq
+    model: qwen2.5-coder-32b-awq
     enabled: false
-    reason: Jason requested no previous-model restore for this evaluation.
+    reason: Previous production model before the Qwen3.5 GPTQ rollout is not restored or tested by default.
 suites:
   - health
   - api_compatibility
