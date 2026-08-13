@@ -66,6 +66,8 @@ vllm:
     - fp8
     - --hf-overrides
     - '{"rope_parameters":{"rope_type":"yarn","factor":4.0,"original_max_position_embeddings":32768}}'
+    - --max-num-batched-tokens
+    - '4096'
     - --enable-auto-tool-choice
     - --tool-parser-plugin
     - /opt/redsalt/vllm/qwen25_coder_tool_parser.py

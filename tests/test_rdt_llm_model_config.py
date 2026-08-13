@@ -48,6 +48,14 @@ def test_rdt_llm_uses_requested_quantization_dtype_and_kv_cache():
     assert "--enforce-eager" not in extra_args
 
 
+def test_rdt_llm_sets_mamba_compatible_batch_token_floor():
+    vllm = rdt_llm_vllm()
+    extra_args = vllm["extra_args"]
+
+    assert "--max-num-batched-tokens" in extra_args
+    assert int(extra_args[extra_args.index("--max-num-batched-tokens") + 1]) >= 4096
+
+
 def test_rdt_llm_keeps_64k_long_context_scaling_for_hermes():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]

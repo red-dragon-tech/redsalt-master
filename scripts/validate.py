@@ -230,6 +230,14 @@ def check_rdt_llm_model_config() -> None:
     for required in ['--enable-auto-tool-choice', '--hf-overrides']:
         if required not in extra_args:
             fail(f'rdt_llm extra_args missing required setting: {required}')
+    if '--max-num-batched-tokens' not in extra_args:
+        fail('rdt_llm extra_args must include --max-num-batched-tokens for Qwen3.5 Mamba cache startup')
+    try:
+        max_batched = int(extra_args[extra_args.index('--max-num-batched-tokens') + 1])
+    except (IndexError, ValueError):
+        fail('rdt_llm --max-num-batched-tokens must have an integer value')
+    if max_batched < 4096:
+        fail('rdt_llm --max-num-batched-tokens must be at least 4096 for Qwen3.5 Mamba cache startup')
     for stale in ['--cpu-offload-gb', '--enforce-eager', 'awq']:
         if stale in extra_args:
             fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
