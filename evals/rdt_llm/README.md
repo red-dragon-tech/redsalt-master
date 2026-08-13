@@ -19,7 +19,7 @@ This directory contains a repeatable evaluation harness for the production `rdt-
 - Hermes CLI end-to-end agent/tool dispatch
 - Coding and Salt/RDT ops reasoning prompts
 - Safety and prompt-injection handling
-- Long-context marker retrieval up to the configured model window
+- Long-context marker retrieval up to the 64k Hermes compatibility window
 - Stability smoke with business-hours load protection
 
 ## Run

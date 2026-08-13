@@ -205,8 +205,8 @@ def check_rdt_llm_model_config() -> None:
         fail('rdt_llm served_model_name must be qwen3.5-coder-32b-instruct-fp8')
     if vllm.get('gpu_memory_utilization') != 0.92:
         fail('rdt_llm gpu_memory_utilization must be 0.92')
-    if vllm.get('max_model_len') != 32768:
-        fail('rdt_llm max_model_len must be 32768')
+    if vllm.get('max_model_len') != 64000:
+        fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
     if vllm.get('enable_prefix_caching') is not True:
         fail('rdt_llm must enable prefix caching')
     extra_args = [str(arg) for arg in (vllm.get('extra_args') or [])]
@@ -216,8 +216,12 @@ def check_rdt_llm_model_config() -> None:
     for stale in ['--quantization', '--hf-overrides', '--cpu-offload-gb', '--enforce-eager']:
         if stale in extra_args:
             fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
-    if 'VLLM_ALLOW_LONG_MAX_MODEL_LEN' in (vllm.get('env_vars') or {}):
-        fail('rdt_llm must not set VLLM_ALLOW_LONG_MAX_MODEL_LEN for the requested 32k target')
+    if '--rope-scaling' not in extra_args:
+        fail('rdt_llm extra_args must include --rope-scaling for the 64k Hermes compatibility target')
+    if '--kv-cache-dtype' not in extra_args or 'fp8' not in extra_args:
+        fail('rdt_llm extra_args must keep fp8 KV cache for the 64k Hermes compatibility target')
+    if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':
+        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for the 64k Hermes compatibility target')
 
 
 def check_firewall() -> None:

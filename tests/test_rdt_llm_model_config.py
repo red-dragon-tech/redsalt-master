@@ -25,23 +25,29 @@ def test_rdt_llm_uses_requested_qwen35_fp8_model():
     assert vllm["served_model_name"] == REQUESTED_SERVED_MODEL
 
 
-def test_rdt_llm_uses_requested_32k_runtime_settings():
+def test_rdt_llm_uses_64k_hermes_compatibility_runtime_settings():
     vllm = rdt_llm_vllm()
 
     assert vllm["gpu_memory_utilization"] == 0.92
-    assert vllm["max_model_len"] == 32768
+    assert vllm["max_model_len"] == 64000
     assert vllm["enable_prefix_caching"] is True
-    assert "VLLM_ALLOW_LONG_MAX_MODEL_LEN" not in vllm.get("env_vars", {})
+    assert vllm["env_vars"]["VLLM_ALLOW_LONG_MAX_MODEL_LEN"] == "1"
 
 
-def test_rdt_llm_removes_qwen25_awq_and_yarn_specific_tuning():
+def test_rdt_llm_removes_awq_specific_tuning_but_keeps_long_context_scaling():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]
 
     assert "--quantization" not in extra_args
-    assert "--hf-overrides" not in extra_args
     assert "--cpu-offload-gb" not in extra_args
     assert "--enforce-eager" not in extra_args
+    assert "--rope-scaling" in extra_args
+    rope_scaling = yaml.safe_load(extra_args[extra_args.index("--rope-scaling") + 1])
+    assert rope_scaling["rope_type"] == "yarn"
+    assert rope_scaling["factor"] == 4.0
+    assert rope_scaling["original_max_position_embeddings"] == 32768
+    assert "--kv-cache-dtype" in extra_args
+    assert extra_args[extra_args.index("--kv-cache-dtype") + 1] == "fp8"
 
 
 def test_rdt_llm_keeps_native_vllm_tool_call_flags():
