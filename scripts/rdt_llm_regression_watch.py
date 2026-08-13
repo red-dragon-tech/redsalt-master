@@ -31,7 +31,7 @@ def main() -> int:
     run_id = "watchdog"
     failures: list[str] = []
     for command in ["inventory", "infra", "direct-api", "tool-calls", "report"]:
-        proc = run([command, "--run-id", run_id, "--target", "rdt-llm:qwen2.5-coder-32b-awq", "--timeout", "240", "--baseline", "rdt-llm:qwen2.5-coder-32b-awq"])
+        proc = run([command, "--run-id", run_id, "--target", "rdt-llm:qwen3.5-coder-32b-instruct-fp8", "--timeout", "240", "--baseline", "rdt-llm:qwen3.5-coder-32b-instruct-fp8"])
         if proc.returncode != 0:
             failures.append(f"{command} rc={proc.returncode}: {proc.stdout.strip()[-1000:]}")
     status_path = ROOT / "evals" / "rdt_llm" / "artifacts" / run_id / "STATUS"
