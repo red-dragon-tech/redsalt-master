@@ -1,12 +1,11 @@
 from pathlib import Path
 import subprocess
-import sys
 
 
 def test_static_validator_passes():
     root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
-        [sys.executable, 'scripts/validate.py'],
+        ['python3', 'scripts/validate.py'],
         cwd=root,
         text=True,
         stdout=subprocess.PIPE,
