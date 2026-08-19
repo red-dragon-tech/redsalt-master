@@ -199,24 +199,24 @@ def check_rdt_llm_caddy_hosts() -> None:
 def check_rdt_llm_model_config() -> None:
     rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
     vllm = rdt_llm.get('vllm') or {}
-    if vllm.get('model') != 'Qwen/Qwen3.5-35B-A3B-GPTQ-Int4':
-        fail('rdt_llm vllm.model must use Qwen/Qwen3.5-35B-A3B-GPTQ-Int4')
-    if vllm.get('served_model_name') != 'qwen3.5-35b-a3b-gptq-int4':
-        fail('rdt_llm served_model_name must be qwen3.5-35b-a3b-gptq-int4')
-    if vllm.get('gpu_memory_utilization') != 0.92:
-        fail('rdt_llm gpu_memory_utilization must be 0.92')
+    if vllm.get('model') != 'Qwen/Qwen3.8-27B-FP8':
+        fail('rdt_llm vllm.model must use Qwen/Qwen3.8-27B-FP8 during the Qwen3.8 candidate activation')
+    if vllm.get('served_model_name') != 'qwen3.8-27b-fp8':
+        fail('rdt_llm served_model_name must be qwen3.8-27b-fp8 during the Qwen3.8 candidate activation')
+    if vllm.get('gpu_memory_utilization') != 0.90:
+        fail('rdt_llm gpu_memory_utilization must be 0.90 for the Qwen3.8 FP8 candidate')
     if vllm.get('max_model_len') != 64000:
         fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
     if vllm.get('enable_prefix_caching') is not True:
         fail('rdt_llm must enable prefix caching')
     if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':
-        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for the 64k Hermes compatibility target')
+        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for Hermes compatibility')
     extra_args = [str(arg) for arg in (vllm.get('extra_args') or [])]
     expected_pairs = {
-        '--quantization': 'gptq_marlin',
         '--dtype': 'bfloat16',
         '--kv-cache-dtype': 'fp8',
-        '--tool-call-parser': 'qwen',
+        '--tool-call-parser': 'qwen3_coder',
+        '--reasoning-parser': 'qwen3',
     }
     for flag, value in expected_pairs.items():
         if flag not in extra_args:
@@ -227,24 +227,18 @@ def check_rdt_llm_model_config() -> None:
             fail(f'rdt_llm extra_args missing value for {flag}')
         if actual != value:
             fail(f'rdt_llm extra_args {flag} must be {value}, got {actual}')
-    for required in ['--enable-auto-tool-choice', '--hf-overrides']:
+    for required in ['--enable-auto-tool-choice', '--max-num-batched-tokens']:
         if required not in extra_args:
             fail(f'rdt_llm extra_args missing required setting: {required}')
-    if '--max-num-batched-tokens' not in extra_args:
-        fail('rdt_llm extra_args must include --max-num-batched-tokens for Qwen3.5 Mamba cache startup')
     try:
         max_batched = int(extra_args[extra_args.index('--max-num-batched-tokens') + 1])
     except (IndexError, ValueError):
         fail('rdt_llm --max-num-batched-tokens must have an integer value')
     if max_batched < 4096:
-        fail('rdt_llm --max-num-batched-tokens must be at least 4096 for Qwen3.5 Mamba cache startup')
-    for stale in ['--cpu-offload-gb', '--enforce-eager', 'awq']:
+        fail('rdt_llm --max-num-batched-tokens must be at least 4096 for the candidate startup')
+    for stale in ['--cpu-offload-gb', '--enforce-eager', '--hf-overrides', '--quantization', 'gptq_marlin', 'awq', '--chat-template', '--tool-parser-plugin']:
         if stale in extra_args:
-            fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
-
-    template = (ROOT / 'states/vllm/files/qwen25_coder_tool_chat_template.jinja').read_text()
-    if '<think>\\n\\n</think>\\n\\n' not in template:
-        fail('Qwen chat template must prefill an empty think block to suppress thinking output')
+            fail(f'rdt_llm extra_args still contain stale Qwen3.5/Qwen2.5 tuning: {stale}')
 
 
 def check_firewall() -> None:
