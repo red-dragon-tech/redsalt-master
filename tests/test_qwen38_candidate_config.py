@@ -14,11 +14,11 @@ def load_yaml(relpath: str):
     return yaml.safe_load((ROOT / relpath).read_text())
 
 
-def test_candidate_config_is_not_active_rdt_llm_pillar():
+def test_candidate_config_matches_active_after_activation():
     active = load_yaml("pillar/minions/rdt_llm.sls")["vllm"]
 
-    assert active["model"] == BASELINE_MODEL
-    assert active["served_model_name"] == BASELINE_SERVED
+    assert active["model"] == CANDIDATE_MODEL
+    assert active["served_model_name"] == CANDIDATE_SERVED
 
 
 def test_qwen38_candidate_config_records_model_and_serving_flags():

@@ -4,8 +4,8 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REQUESTED_MODEL = "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4"
-REQUESTED_SERVED_MODEL = "qwen3.5-35b-a3b-gptq-int4"
+REQUESTED_MODEL = "Qwen/Qwen3.8-27B-FP8"
+REQUESTED_SERVED_MODEL = "qwen3.8-27b-fp8"
 
 
 def rdt_llm_vllm():
@@ -18,7 +18,7 @@ def rdt_llm_caddy():
     return data["caddy"]
 
 
-def test_rdt_llm_uses_requested_qwen35_gptq_int4_model():
+def test_rdt_llm_uses_requested_qwen38_fp8_model():
     vllm = rdt_llm_vllm()
 
     assert vllm["model"] == REQUESTED_MODEL
@@ -28,18 +28,17 @@ def test_rdt_llm_uses_requested_qwen35_gptq_int4_model():
 def test_rdt_llm_uses_requested_runtime_settings():
     vllm = rdt_llm_vllm()
 
-    assert vllm["gpu_memory_utilization"] == 0.92
-    assert vllm["max_model_len"] == 64000
+    assert vllm["gpu_memory_utilization"] == 0.90
+    assert vllm["max_model_len"] == 32768
     assert vllm["enable_prefix_caching"] is True
     assert vllm["env_vars"]["VLLM_ALLOW_LONG_MAX_MODEL_LEN"] == "1"
 
 
-def test_rdt_llm_uses_requested_quantization_dtype_and_kv_cache():
+def test_rdt_llm_uses_requested_dtype_and_kv_cache():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]
 
-    assert "--quantization" in extra_args
-    assert extra_args[extra_args.index("--quantization") + 1] == "gptq_marlin"
+    assert "--quantization" not in extra_args
     assert "--dtype" in extra_args
     assert extra_args[extra_args.index("--dtype") + 1] == "bfloat16"
     assert "--kv-cache-dtype" in extra_args
@@ -48,7 +47,7 @@ def test_rdt_llm_uses_requested_quantization_dtype_and_kv_cache():
     assert "--enforce-eager" not in extra_args
 
 
-def test_rdt_llm_sets_mamba_compatible_batch_token_floor():
+def test_rdt_llm_sets_candidate_batch_token_floor():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]
 
@@ -56,16 +55,11 @@ def test_rdt_llm_sets_mamba_compatible_batch_token_floor():
     assert int(extra_args[extra_args.index("--max-num-batched-tokens") + 1]) >= 4096
 
 
-def test_rdt_llm_keeps_64k_long_context_scaling_for_hermes():
+def test_rdt_llm_omits_qwen35_yarn_override_for_qwen38_candidate():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]
 
-    assert "--hf-overrides" in extra_args
-    overrides = yaml.safe_load(extra_args[extra_args.index("--hf-overrides") + 1])
-    rope = overrides["rope_parameters"]
-    assert rope["rope_type"] == "yarn"
-    assert rope["factor"] == 4.0
-    assert rope["original_max_position_embeddings"] == 32768
+    assert "--hf-overrides" not in extra_args
 
 
 def test_rdt_llm_keeps_native_vllm_tool_call_flags():
@@ -74,14 +68,12 @@ def test_rdt_llm_keeps_native_vllm_tool_call_flags():
 
     assert "--enable-auto-tool-choice" in extra_args
     assert "--tool-call-parser" in extra_args
-    assert extra_args[extra_args.index("--tool-call-parser") + 1] == "qwen"
-    assert "--chat-template" in extra_args
+    assert extra_args[extra_args.index("--tool-call-parser") + 1] == "qwen3_coder"
+    assert "--reasoning-parser" in extra_args
+    assert extra_args[extra_args.index("--reasoning-parser") + 1] == "qwen3"
+    assert "--chat-template" not in extra_args
+    assert "--tool-parser-plugin" not in extra_args
 
-
-def test_qwen_chat_template_prefills_empty_thinking_block():
-    template = (ROOT / "states" / "vllm" / "files" / "qwen25_coder_tool_chat_template.jinja").read_text()
-
-    assert "<think>\\n\\n</think>\\n\\n" in template
 
 
 def test_rdt_llm_caddy_serves_new_dns_name_and_legacy_host():
