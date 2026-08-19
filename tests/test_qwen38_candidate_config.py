@@ -27,7 +27,7 @@ def test_qwen38_candidate_config_records_model_and_serving_flags():
 
     assert candidate["model"] == CANDIDATE_MODEL
     assert candidate["served_model_name"] == CANDIDATE_SERVED
-    assert candidate["max_model_len"] <= 32768
+    assert candidate["max_model_len"] == 64000
     assert "--enable-auto-tool-choice" in extra_args
     assert "--tool-call-parser" in extra_args
     assert extra_args[extra_args.index("--tool-call-parser") + 1] == "qwen3_coder"

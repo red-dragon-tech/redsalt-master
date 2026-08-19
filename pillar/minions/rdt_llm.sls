@@ -47,7 +47,7 @@ vllm:
   served_model_name: qwen3.8-27b-fp8
   gpu_count: all
   gpu_memory_utilization: 0.9
-  max_model_len: 32768
+  max_model_len: 64000
   tensor_parallel_size: 1
   enable_prefix_caching: true
   trust_remote_code: false

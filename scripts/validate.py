@@ -205,8 +205,8 @@ def check_rdt_llm_model_config() -> None:
         fail('rdt_llm served_model_name must be qwen3.8-27b-fp8 during the Qwen3.8 candidate activation')
     if vllm.get('gpu_memory_utilization') != 0.90:
         fail('rdt_llm gpu_memory_utilization must be 0.90 for the Qwen3.8 FP8 candidate')
-    if vllm.get('max_model_len') != 32768:
-        fail('rdt_llm max_model_len must be 32768 for the initial Qwen3.8 FP8 candidate boot')
+    if vllm.get('max_model_len') != 64000:
+        fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
     if vllm.get('enable_prefix_caching') is not True:
         fail('rdt_llm must enable prefix caching')
     if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':

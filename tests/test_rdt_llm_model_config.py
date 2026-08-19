@@ -29,7 +29,7 @@ def test_rdt_llm_uses_requested_runtime_settings():
     vllm = rdt_llm_vllm()
 
     assert vllm["gpu_memory_utilization"] == 0.90
-    assert vllm["max_model_len"] == 32768
+    assert vllm["max_model_len"] == 64000
     assert vllm["enable_prefix_caching"] is True
     assert vllm["env_vars"]["VLLM_ALLOW_LONG_MAX_MODEL_LEN"] == "1"
 
@@ -55,7 +55,7 @@ def test_rdt_llm_sets_candidate_batch_token_floor():
     assert int(extra_args[extra_args.index("--max-num-batched-tokens") + 1]) >= 4096
 
 
-def test_rdt_llm_omits_qwen35_yarn_override_for_qwen38_candidate():
+def test_rdt_llm_keeps_64k_model_length_without_qwen35_yarn_override():
     vllm = rdt_llm_vllm()
     extra_args = vllm["extra_args"]
 
