@@ -14,7 +14,7 @@ vllm_candidate:
   host: 0.0.0.0
   gpu_count: all
   gpu_memory_utilization: 0.90
-  max_model_len: 64000
+  max_model_len: 32768
   tensor_parallel_size: 1
   enable_prefix_caching: true
   trust_remote_code: false
