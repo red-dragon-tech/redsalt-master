@@ -44,30 +44,44 @@ def run(cmd: list[str], timeout: int = 900) -> subprocess.CompletedProcess[str]:
 
 
 def parse_json_objects(raw: str) -> Any:
+    """Parse Salt JSON with optional human-readable prefixes and batching.
+
+    Salt can emit a line such as ``Executing run on [...]`` before the JSON
+    payload, and batch output may contain adjacent JSON objects.  Decode each
+    object beginning at a JSON container rather than requiring JSON at offset 0.
+    """
     raw = raw.strip()
     if not raw:
         return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        decoder = json.JSONDecoder()
-        idx = 0
-        merged: dict[str, Any] = {}
-        saw = False
-        while idx < len(raw):
-            while idx < len(raw) and raw[idx].isspace():
-                idx += 1
-            if idx >= len(raw):
-                break
-            obj, idx = decoder.raw_decode(raw, idx)
-            if isinstance(obj, dict):
-                merged.update(obj)
-                saw = True
-            else:
-                raise ValueError(f'unexpected JSON member: {obj!r}')
-        if saw:
-            return merged
-        raise
+    decoder = json.JSONDecoder()
+    merged: dict[str, Any] = {}
+    objects: list[Any] = []
+    idx = 0
+    while idx < len(raw):
+        while idx < len(raw) and raw[idx].isspace():
+            idx += 1
+        if idx >= len(raw):
+            break
+        starts = [pos for pos in (raw.find('{', idx), raw.find('[', idx)) if pos >= 0]
+        if not starts:
+            break
+        idx = min(starts)
+        try:
+            obj, next_idx = decoder.raw_decode(raw, idx)
+        except json.JSONDecodeError:
+            idx += 1
+            continue
+        objects.append(obj)
+        idx = next_idx
+        if isinstance(obj, dict):
+            merged.update(obj)
+    if not objects:
+        raise ValueError(f'no JSON object found in output: {raw[:500]}')
+    if len(objects) == 1:
+        return objects[0]
+    if all(isinstance(obj, dict) for obj in objects):
+        return merged
+    raise ValueError(f'unexpected mixed JSON output: {objects!r}')
 
 
 def get_master_id() -> str:
