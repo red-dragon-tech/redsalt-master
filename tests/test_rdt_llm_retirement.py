@@ -32,6 +32,9 @@ def test_active_retired_evaluation_tools_are_not_versioned():
     archived_watchdog = (ROOT / "archive/rdt-llm/rdt_llm_regression_watch.py").read_text()
     assert "traceability only" in archive_readme
     assert "ARCHIVED, HISTORICAL ONLY" in eval_readme
+    assert "## Run" not in eval_readme
+    assert "./evals/rdt_llm/run_full_eval.sh" not in eval_readme
+    assert "--allow-business-hours-load" not in eval_readme
     assert "ARCHIVED, HISTORICAL ONLY" in rollback_plan
     assert "ARCHIVED, HISTORICAL ONLY" in archived_watchdog
     for archived_tool in (
