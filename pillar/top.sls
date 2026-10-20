@@ -12,8 +12,5 @@ base:
   'mgmt.rdt.dev':
     - minions.mgmt_rdt_dev
 
-  'rdt-llm':
-    - minions.rdt_llm
-
   'rdt-kali':
     - minions.rdt_kali

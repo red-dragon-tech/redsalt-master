@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Full evaluation harness for the RDT rdt-llm model lane.
 
+ARCHIVED, HISTORICAL ONLY. This module is not an operational tool and must not
+be used to contact the retired host or execute infrastructure probes.
+
 The harness compares the deployed rdt-llm model with the currently configured
 Hermes baseline lanes, records raw artifacts, and emits a Markdown report. It is
 safe-by-default: secrets are redacted, production load above concurrency=2 is
@@ -29,10 +32,19 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+
+def _refuse_archived_execution() -> None:
+    print("ARCHIVED, HISTORICAL ONLY: this RDT LLM evaluation harness is disabled.", file=sys.stderr)
+    raise SystemExit(2)
+
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - validate/tests install PyYAML; runtime error is explicit.
     yaml = None
+
+
+if __name__ == "__main__":
+    _refuse_archived_execution()
 
 ROOT = Path(__file__).resolve().parents[3]
 EVAL_ROOT = ROOT / "evals" / "rdt_llm"
@@ -558,24 +570,8 @@ def make_long_context_case(size_k: int) -> dict[str, Any]:
 
 
 def infra_probe(artifact_dir: Path) -> dict[str, Any]:
-    cmd = [
-        "ssh", "-i", "/root/.ssh/id_ed25519_darth_remote", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-        "darthai@mgmt.rdt.dev",
-        "sudo salt 'rdt-llm' cmd.run 'curl -fsS --max-time 10 http://127.0.0.1:8000/v1/models' --out=json; "
-        "sudo salt 'rdt-llm' cmd.run 'docker ps --filter name=vllm-vllm-openai-1 --format {{.Status}}' --out=json; "
-        "sudo salt 'rdt-llm' cmd.run 'nvidia-smi --query-gpu=name,memory.total,memory.used,utilization.gpu --format=csv,noheader' --out=json; "
-        "sudo salt 'rdt-llm' cmd.run \"docker logs --tail 120 vllm-vllm-openai-1 2>&1 | grep -Ei 'error|exception|traceback|oom|cuda out|failed' || true\" --out=json",
-    ]
-    t0 = time.perf_counter()
-    try:
-        proc = run_command(cmd, timeout=300)
-        raw = proc.stdout
-        path = artifact_dir / "infra_probe.txt"
-        path.write_text(raw, encoding="utf-8")
-        errors = [line for line in raw.splitlines() if ERROR_LOG_RE.search(line)]
-        return {"checked_at": now_utc(), "exit_code": proc.returncode, "latency_s": round(time.perf_counter() - t0, 3), "passed": proc.returncode == 0 and not errors, "error_lines": errors, "raw_path": str(path)}
-    except Exception as exc:  # noqa: BLE001
-        return {"checked_at": now_utc(), "passed": False, "error": repr(exc)}
+    """Retired probe: deliberately inert to prevent infrastructure access."""
+    return {"status": "ARCHIVED", "reason": "RDT LLM infrastructure probe is retired"}
 
 
 def collect_result_files(artifact_dir: Path) -> list[Path]:
@@ -783,15 +779,5 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if args.baseline is None:
-        args.baseline = list(DEFAULT_BASELINES)
-    if args.command == "full":
-        return run_full(args)
-    return run_suite(args)
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    _refuse_archived_execution()

@@ -54,4 +54,4 @@ Managed vLLM hosts use deterministic paths:
 
 Secrets are not stored in pillar. Operators provision one unique restic repository password and one per-host/prefix-scoped B2 application key on each host, then set `restic_backup:enabled: true` after a manual canary run succeeds.
 
-The default backup scope includes `/etc`, `/root`, `/home`, `/opt`, `/usr/local`, `/var/lib`, and `/var/spool/cron`. Reconstructable caches, container layers, Kubernetes state, and logs are excluded by default. `rdt-llm` additionally excludes `/opt/models` and `/var/cache/huggingface`; model weights are treated as reconstructable unless a specific non-reconstructable path is approved.
+The default backup scope includes `/etc`, `/root`, `/home`, `/opt`, `/usr/local`, `/var/lib`, and `/var/spool/cron`. Reconstructable caches, container layers, Kubernetes state, and logs are excluded by default. Treat model weights and caches as reconstructable unless a specific non-reconstructable path is explicitly approved.

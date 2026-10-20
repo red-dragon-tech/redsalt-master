@@ -1,3 +1,5 @@
+> ARCHIVED, HISTORICAL ONLY. Do not run commands or contact endpoints described below. The RDT LLM service has been retired; this directory is retained for traceability, not as an active runbook.
+
 # RDT LLM Full Evaluation Harness
 
 This directory contains a repeatable evaluation harness for the production `rdt-llm` model lane.
