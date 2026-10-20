@@ -1,3 +1,5 @@
+> ARCHIVED, HISTORICAL ONLY. This rollback plan is superseded by the approved RDT LLM service retirement. Do not execute commands or use targets from this document; retain it for traceability only.
+
 # Qwen3.5 GPTQ to Qwen2.5-Coder AWQ Rollback Plan
 
 > **For Hermes:** This is a plan-only rollback runbook. Do not execute production changes without explicit approval.

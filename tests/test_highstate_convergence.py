@@ -9,15 +9,15 @@ spec.loader.exec_module(module)
 
 
 def test_parse_salt_prefix_and_json_payload():
-    raw = "Executing run on ['rdt-llm']\n\n{\n  \"rdt-llm\": {\"result\": true}\n}\n"
-    assert module.parse_json_objects(raw) == {"rdt-llm": {"result": True}}
+    raw = "Executing run on ['example-vllm-node']\n\n{\n  \"example-vllm-node\": {\"result\": true}\n}\n"
+    assert module.parse_json_objects(raw) == {"example-vllm-node": {"result": True}}
 
 
 def test_parse_adjacent_json_objects_merges_minions():
-    raw = '{"rdt-kali": {"result": true}}\n{"rdt-llm": {"result": true}}'
+    raw = '{"rdt-kali": {"result": true}}\n{"example-vllm-node": {"result": true}}'
     assert module.parse_json_objects(raw) == {
         "rdt-kali": {"result": True},
-        "rdt-llm": {"result": True},
+        "example-vllm-node": {"result": True},
     }
 
 

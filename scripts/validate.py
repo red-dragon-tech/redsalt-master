@@ -36,7 +36,6 @@ REQUIRED = [
     'pillar/roles/defaults.sls',
     'pillar/restic_backup/defaults.sls',
     'pillar/minions/mgmt_rdt_dev.sls',
-    'pillar/minions/rdt_llm.sls',
     'pillar/minions/rdt_kali.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
@@ -156,10 +155,6 @@ def check_restic_backup() -> None:
         if required not in excludes:
             fail(f'restic_backup default excludes missing {required}')
 
-    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
-    llm_excludes = [str(x) for x in ((rdt_llm.get('restic_backup') or {}).get('excludes') or [])]
-    if '/opt/models' not in llm_excludes or '/var/cache/huggingface' not in llm_excludes:
-        fail('rdt_llm restic_backup must exclude model/cache paths by default')
     rdt_kali = load_yaml(ROOT / 'pillar/minions/rdt_kali.sls') or {}
     kali_restic = rdt_kali.get('restic_backup') or {}
     if 'rdt-kali' not in [str(x) for x in (kali_restic.get('tags') or [])]:
@@ -177,71 +172,7 @@ def check_restic_backup() -> None:
             fail(f'restic_backup state missing safe manual-secret behavior: {required}')
 
 
-def check_rdt_llm_caddy_hosts() -> None:
-    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
-    servers = ((rdt_llm.get('caddy') or {}).get('servers') or [])
-    hosts = [str(server.get('host')) for server in servers]
-    if 'llm.ai.rdt.dev' not in hosts:
-        fail('rdt_llm Caddy pillar must include primary host llm.ai.rdt.dev')
-    if 'ai.redspectre.rdt.dev' not in hosts:
-        fail('rdt_llm Caddy pillar must keep legacy host ai.redspectre.rdt.dev during DNS migration')
-
-    for host in ['llm.ai.rdt.dev', 'ai.redspectre.rdt.dev']:
-        server = next((item for item in servers if item.get('host') == host), None)
-        if not server:
-            fail(f'rdt_llm Caddy pillar missing server entry for {host}')
-        if server.get('upstream') != '127.0.0.1:8000':
-            fail(f'rdt_llm Caddy host {host} must proxy to 127.0.0.1:8000')
-        if server.get('require_bearer_token') is not True:
-            fail(f'rdt_llm Caddy host {host} must require bearer token')
-
-
-def check_rdt_llm_model_config() -> None:
-    rdt_llm = load_yaml(ROOT / 'pillar/minions/rdt_llm.sls') or {}
-    vllm = rdt_llm.get('vllm') or {}
-    if vllm.get('model') != 'Qwen/Qwen3.5-35B-A3B-GPTQ-Int4':
-        fail('rdt_llm vllm.model must use Qwen/Qwen3.5-35B-A3B-GPTQ-Int4')
-    if vllm.get('served_model_name') != 'qwen3.5-35b-a3b-gptq-int4':
-        fail('rdt_llm served_model_name must be qwen3.5-35b-a3b-gptq-int4')
-    if vllm.get('gpu_memory_utilization') != 0.92:
-        fail('rdt_llm gpu_memory_utilization must be 0.92')
-    if vllm.get('max_model_len') != 64000:
-        fail('rdt_llm max_model_len must be 64000 for Hermes compatibility')
-    if vllm.get('enable_prefix_caching') is not True:
-        fail('rdt_llm must enable prefix caching')
-    if (vllm.get('env_vars') or {}).get('VLLM_ALLOW_LONG_MAX_MODEL_LEN') != '1':
-        fail('rdt_llm must set VLLM_ALLOW_LONG_MAX_MODEL_LEN=1 for the 64k Hermes compatibility target')
-    extra_args = [str(arg) for arg in (vllm.get('extra_args') or [])]
-    expected_pairs = {
-        '--quantization': 'gptq_marlin',
-        '--dtype': 'bfloat16',
-        '--kv-cache-dtype': 'fp8',
-        '--tool-call-parser': 'qwen',
-    }
-    for flag, value in expected_pairs.items():
-        if flag not in extra_args:
-            fail(f'rdt_llm extra_args missing required setting: {flag}')
-        try:
-            actual = extra_args[extra_args.index(flag) + 1]
-        except IndexError:
-            fail(f'rdt_llm extra_args missing value for {flag}')
-        if actual != value:
-            fail(f'rdt_llm extra_args {flag} must be {value}, got {actual}')
-    for required in ['--enable-auto-tool-choice', '--hf-overrides']:
-        if required not in extra_args:
-            fail(f'rdt_llm extra_args missing required setting: {required}')
-    if '--max-num-batched-tokens' not in extra_args:
-        fail('rdt_llm extra_args must include --max-num-batched-tokens for Qwen3.5 Mamba cache startup')
-    try:
-        max_batched = int(extra_args[extra_args.index('--max-num-batched-tokens') + 1])
-    except (IndexError, ValueError):
-        fail('rdt_llm --max-num-batched-tokens must have an integer value')
-    if max_batched < 4096:
-        fail('rdt_llm --max-num-batched-tokens must be at least 4096 for Qwen3.5 Mamba cache startup')
-    for stale in ['--cpu-offload-gb', '--enforce-eager', 'awq']:
-        if stale in extra_args:
-            fail(f'rdt_llm extra_args still contain stale Qwen2.5/AWQ tuning: {stale}')
-
+def check_qwen_tool_template() -> None:
     template = (ROOT / 'states/vllm/files/qwen25_coder_tool_chat_template.jinja').read_text()
     if '<think>\\n\\n</think>\\n\\n' not in template:
         fail('Qwen chat template must prefill an empty think block to suppress thinking output')
@@ -305,8 +236,7 @@ def main() -> int:
     check_roles()
     check_managed_users()
     check_restic_backup()
-    check_rdt_llm_caddy_hosts()
-    check_rdt_llm_model_config()
+    check_qwen_tool_template()
     check_firewall()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
