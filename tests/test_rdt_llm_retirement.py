@@ -9,6 +9,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_caddy_auth_is_generic_and_removes_the_retired_rdt_snippet():
+    state = (ROOT / "states/caddy/init.sls").read_text()
+    template = (ROOT / "states/caddy/files/Caddyfile.j2").read_text()
+    active = state.split("caddy-rdt-llm-auth-snippet-absent:", maxsplit=1)[1].split(
+        "caddyfile:", maxsplit=1
+    )[0]
+
+    assert "file.absent:" in active
+    assert "/etc/caddy/rdt-llm-auth.caddy" in active
+    assert "cmd.run:" not in active
+    assert "import /etc/caddy/rdt-llm-auth.caddy" not in template
+    assert '@authorized header Authorization "Bearer {env.CADDY_BEARER_TOKEN}"' in template
+
+
+
 def test_retired_minion_is_not_targeted_or_kept_as_host_pillar():
     pillar_top = yaml.safe_load((ROOT / "pillar/top.sls").read_text())
 
