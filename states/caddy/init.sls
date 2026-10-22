@@ -35,28 +35,9 @@ caddy-old-rdt-llm-api-key-env-absent:
   file.absent:
     - name: /etc/caddy/rdt-llm.env
 
-caddy-rdt-llm-auth-snippet:
-  cmd.run:
-    - name: |
-        set -eu
-        key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
-        umask 027
-        printf '@authorized header Authorization "Bearer %s"\n' "$key" > /etc/caddy/rdt-llm-auth.caddy
-        chown root:caddy /etc/caddy/rdt-llm-auth.caddy
-        chmod 0640 /etc/caddy/rdt-llm-auth.caddy
-    - unless: test -s /etc/caddy/rdt-llm-auth.caddy
-    - require:
-      - pkg: caddy-package
-
-caddy-rdt-llm-auth-snippet-permissions:
-  file.managed:
+caddy-rdt-llm-auth-snippet-absent:
+  file.absent:
     - name: /etc/caddy/rdt-llm-auth.caddy
-    - user: root
-    - group: caddy
-    - mode: '0640'
-    - replace: False
-    - require:
-      - cmd: caddy-rdt-llm-auth-snippet
 
 caddyfile:
   file.managed:
@@ -70,7 +51,6 @@ caddyfile:
         caddy: {{ caddy | json }}
     - require:
       - file: caddy-config-directory
-      - file: caddy-rdt-llm-auth-snippet-permissions
 
 caddy-systemd-daemon-reload:
   cmd.run:
@@ -83,10 +63,10 @@ caddy-config-validate:
     - name: caddy validate --config /etc/caddy/Caddyfile
     - onchanges:
       - file: caddyfile
-      - file: caddy-rdt-llm-auth-snippet-permissions
+      - file: caddy-rdt-llm-auth-snippet-absent
     - require:
       - file: caddyfile
-      - file: caddy-rdt-llm-auth-snippet-permissions
+      - file: caddy-rdt-llm-auth-snippet-absent
 
 caddy-service:
   service.running:
@@ -100,5 +80,5 @@ caddy-service:
       - file: caddyfile
       - file: caddy-old-redsalt-env-dropin-absent
       - file: caddy-old-rdt-llm-api-key-env-absent
-      - file: caddy-rdt-llm-auth-snippet-permissions
+      - file: caddy-rdt-llm-auth-snippet-absent
 {% endif %}

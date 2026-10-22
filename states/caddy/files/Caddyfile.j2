@@ -13,7 +13,7 @@
 {% endif %}
 
 {% if server.get('require_bearer_token', True) %}
-  import /etc/caddy/rdt-llm-auth.caddy
+  @authorized header Authorization "Bearer {env.CADDY_BEARER_TOKEN}"
   handle @authorized {
     reverse_proxy {{ server.get('upstream', '127.0.0.1:8000') }}
   }
