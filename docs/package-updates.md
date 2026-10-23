@@ -21,6 +21,14 @@ autoremove/full dependency transitions; the normal provider upgrade path still
 updates packages in place. It does not enable a competing native updater.
 Other hosts remain unchanged until they receive an explicit host override.
 
+Hosts may specify a narrow `latest_packages` list alongside the general
+upgrade state. Salt applies `pkg.latest` only to already-installed packages in
+that list (`only_upgrade: true`), allowing APT to resolve required package
+dependencies without enabling distribution upgrades. `mgmt.rdt.dev` uses this
+for `fwupd` because a regular APT upgrade held back its candidate while that
+candidate required installing `libfwupd3` and `libdrm-amdgpu1`. Review the
+preview before applying this host policy.
+
 ## OS handling
 
 - Debian/Ubuntu/Kali: Salt package provider; `dist_upgrade` is opt-in. Native
