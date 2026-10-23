@@ -17,6 +17,18 @@ package-updates-system-uptodate:
     - dist_upgrade: {{ cfg.get('debian_dist_upgrade', False) }}
 {% endif %}
 {% endif %}
+{% if enabled and manager == 'salt' and cfg.get('latest_packages', []) %}
+{% for package in cfg.get('latest_packages', []) %}
+package-updates-latest-{{ package }}:
+  pkg.latest:
+    - name: {{ package }}
+    - refresh: false
+    - only_upgrade: true
+{% if os_family == 'Debian' %}
+    - dist_upgrade: false
+{% endif %}
+{% endfor %}
+{% endif %}
 
 {% if enabled and cfg.get('automatic_reboot', False) %}
 package-updates-reboot-checker:

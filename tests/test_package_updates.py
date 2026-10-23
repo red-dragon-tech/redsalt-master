@@ -10,6 +10,17 @@ def test_package_update_role_is_included_in_base_role():
     assert "- package_updates" in role
 
 
+def test_fwupd_is_updated_only_for_explicit_host_opt_in():
+    state = (ROOT / "states/package_updates/init.sls").read_text()
+    defaults = (ROOT / "pillar/package_updates/defaults.sls").read_text()
+    host = (ROOT / "pillar/minions/mgmt_rdt_dev.sls").read_text()
+    assert "enabled: false" in defaults
+    assert "latest_packages:" in host
+    assert "    - fwupd" in host
+    assert "pkg.latest" in state
+    assert "only_upgrade: true" in state
+
+
 def test_default_update_manager_applies_cross_platform_salt_uptodate():
     state = (ROOT / "states/package_updates/init.sls").read_text()
     assert "pkg.uptodate" in state
@@ -66,6 +77,19 @@ def test_update_state_renders_valid_yaml_for_debian_redhat_and_suse():
         raise AssertionError(f"YAML/Jinja test dependencies are required: {exc}")
 
     template = Environment().from_string((ROOT / "states/package_updates/init.sls").read_text())
+    targeted_fwupd = template.render(
+        salt={"pillar.get": lambda key, default=None: {
+            "enabled": True, "manager": "salt", "refresh": True,
+            "debian_dist_upgrade": False, "latest_packages": ["fwupd"],
+        } if key == "package_updates" else default},
+        grains={"os_family": "Debian", "os": "Ubuntu"},
+    )
+    parsed_fwupd = yaml.safe_load(targeted_fwupd)
+    assert "package-updates-latest-fwupd" in parsed_fwupd
+    fwupd_options = parsed_fwupd["package-updates-latest-fwupd"]["pkg.latest"]
+    assert {"only_upgrade": True} in fwupd_options
+    assert {"dist_upgrade": False} in fwupd_options
+
     for os_family in ("Debian", "RedHat", "Suse"):
         for manager, native in (("salt", False), ("native", True)):
             rendered = template.render(
