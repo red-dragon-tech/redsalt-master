@@ -28,6 +28,7 @@ REQUIRED = [
     'README.md',
     'docs/architecture.md',
     'docs/operations.md',
+    'docs/package-updates.md',
     'docs/security.md',
     'pillar/top.sls',
     'pillar/common/defaults.sls',
@@ -36,6 +37,7 @@ REQUIRED = [
     'pillar/roles/defaults.sls',
     'pillar/restic_backup/defaults.sls',
     'pillar/minions/mgmt_rdt_dev.sls',
+    'pillar/package_updates/defaults.sls',
     'pillar/minions/rdt_kali.sls',
     'pillar/minions/example-vllm-node.sls',
     'salt-master.d/redsalt-roots.conf.example',
@@ -53,6 +55,8 @@ REQUIRED = [
     'states/redsalt_highstate_convergence/init.sls',
     'states/redsalt_highstate_convergence/files/redsalt-highstate-convergence.py',
     'states/restic_backup/init.sls',
+    'states/package_updates/init.sls',
+    'states/package_updates/files/redsalt-reboot-if-required.py',
     'states/restic_backup/files/rdt-restic-backup.sh.j2',
     'states/restic_backup/files/restic-backup.service.j2',
     'states/restic_backup/files/restic-backup.timer.j2',
@@ -66,6 +70,7 @@ REQUIRED = [
     'states/vllm/files/vllm.env.j2',
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',
+    'tests/test_package_updates.py',
 ]
 ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master', 'kali_workstation', 'restic_backup'}
 DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
@@ -218,6 +223,37 @@ def check_firewall() -> None:
         fail('states/roles/base.sls must include firewall state')
 
 
+def check_package_updates() -> None:
+    defaults = load_yaml(ROOT / 'pillar/package_updates/defaults.sls') or {}
+    cfg = defaults.get('package_updates') or {}
+    if cfg.get('manager') not in {'salt', 'native'}:
+        fail('package_updates manager must be salt or native')
+    if cfg.get('enabled') is not False:
+        fail('package_updates defaults must remain opt-in until explicitly assigned per host')
+    if cfg.get('native_unattended') is not False:
+        fail('native unattended managers must default off to avoid package-manager races')
+    state = (ROOT / 'states/package_updates/init.sls').read_text()
+    for required in ['pkg.uptodate', 'unattended-upgrades', 'dnf-automatic-install.timer', 'dnf5-plugin-automatic', 'dnf5-automatic.timer', 'Persistent=false']:
+        if required not in state:
+            fail(f'package update state missing platform behavior: {required}')
+    role = (ROOT / 'states/roles/base.sls').read_text()
+    if '- package_updates' not in role:
+        fail('states/roles/base.sls must include package_updates state')
+    top = (ROOT / 'pillar/top.sls').read_text()
+    if '- package_updates.defaults' not in top:
+        fail('pillar/top.sls must include global package_updates defaults')
+    master = load_yaml(ROOT / 'pillar/minions/mgmt_rdt_dev.sls') or {}
+    master_cfg = master.get('package_updates') or {}
+    if master_cfg.get('manager') != 'salt' or master_cfg.get('enabled') is not True:
+        fail('mgmt.rdt.dev must explicitly enable Salt-managed package updates')
+    if master_cfg.get('automatic_reboot') is not True or master_cfg.get('reboot_time') != '06:00':
+        fail('mgmt.rdt.dev must explicitly set its reboot check to 06:00')
+    if master_cfg.get('debian_dist_upgrade') is not False:
+        fail('mgmt.rdt.dev must keep Debian dist_upgrade disabled')
+    if master_cfg.get('native_unattended') is not False:
+        fail('mgmt.rdt.dev must not run a competing native package updater')
+
+
 def check_no_obvious_secrets() -> None:
     skip_dirs = {'.git', '__pycache__', '.pytest_cache'}
     for path in ROOT.rglob('*'):
@@ -238,6 +274,7 @@ def main() -> int:
     check_restic_backup()
     check_qwen_tool_template()
     check_firewall()
+    check_package_updates()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
     return 0

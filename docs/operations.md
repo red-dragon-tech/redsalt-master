@@ -74,6 +74,43 @@ journalctl -u redsalt-highstate-convergence.service -n 100 --no-pager
 tail -200 /var/log/redsalt-highstate-convergence.log
 ```
 
+## Package updates
+
+The base role includes `package_updates`. Updates remain disabled by default;
+hosts must explicitly opt in. For opted-in hosts, Salt-managed full package
+convergence (`pkg.uptodate`) runs during regular highstate. Salt chooses the
+package backend from each minion's OS family; Debian-family systems use
+`dist_upgrade` only when explicitly opted in. Native scheduled updaters are off
+by default, preventing APT/DNF/Zypper and Salt from racing for package-manager
+locks. To select native unattended updates instead, set
+`package_updates:manager: native` and `native_unattended: true` in pillar.
+Native configuration is OS-specific: Debian uses `unattended-upgrades` and the
+APT daily timers; RedHat uses `dnf-automatic-install.timer`; transactional SUSE
+uses `transactional-update.timer`. Unsupported/non-transactional SUSE native
+policy is deliberately not guessed; use Salt manager or define a reviewed
+vendor-specific policy first. Kali is Debian-family and uses the Salt package
+module under the default policy.
+
+Global policy lives at `pillar/package_updates/defaults.sls` and may be
+overridden per host. For the Salt master `mgmt.rdt.dev`, the host override
+enables Salt updates and allows a reboot only after the OS signals one is
+required, checked daily at 06:00 UTC. All other systems default to no automatic
+reboot. Reboot checks include Debian's reboot-required marker and DNF's
+`needs-restarting -r` where available. There is no dist-upgrade by default.
+
+Preview and inspect a host before enabling its policy:
+
+```bash
+salt '<minion-id>' state.show_highstate
+salt '<minion-id>' state.apply package_updates test=True
+salt '<minion-id>' pkg.list_upgrades
+salt '<minion-id>' state.apply package_updates
+```
+
+The current Salt master has 76 pending upgrades including Salt packages; this
+change only prepares configuration. It does not update the running master or
+other hosts until approved production code is promoted and applied.
+
 ## Rollout workflow
 
 1. Add or update host pillar under `pillar/minions/<minion-id>.sls`.
