@@ -21,6 +21,12 @@ The example Salt master config in `salt-master.d/redsalt-roots.conf.example` poi
 
 This lets operators move hosts between roles by changing pillar only.
 
+Scheduled package updates are a separate capability from ordinary
+configuration highstate. The `salt_master` role runs a master-side policy
+runner with an explicit minion allowlist; each target must also opt in via
+pillar. This prevents the generic base role's routine highstate cadence from
+silently becoming a workstation patch cadence.
+
 ## Host layout
 
 Managed vLLM hosts use deterministic paths:

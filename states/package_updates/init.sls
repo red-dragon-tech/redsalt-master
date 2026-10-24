@@ -1,5 +1,6 @@
 {% set cfg = salt['pillar.get']('package_updates', {}) %}
 {% set enabled = cfg.get('enabled', False) %}
+{% set scheduled = cfg.get('scheduled', False) %}
 {% set manager = cfg.get('manager', 'salt') %}
 {% set os_family = grains.get('os_family', '') %}
 
@@ -9,7 +10,7 @@ package-updates-invalid-manager:
     - name: package_updates manager must be exactly salt or native.
 {% endif %}
 
-{% if enabled and manager == 'salt' %}
+{% if enabled and manager == 'salt' and not scheduled %}
 package-updates-system-uptodate:
   pkg.uptodate:
     - refresh: {{ cfg.get('refresh', True) }}
@@ -17,7 +18,20 @@ package-updates-system-uptodate:
     - dist_upgrade: {{ cfg.get('debian_dist_upgrade', False) }}
 {% endif %}
 {% endif %}
-{% if enabled and manager == 'salt' and cfg.get('latest_packages', []) %}
+
+{% if enabled and manager == 'salt' and os_family == 'Debian' and not cfg.get('native_unattended', False) %}
+package-updates-disable-debian-native-auto-upgrades:
+  file.managed:
+    - name: /etc/apt/apt.conf.d/52redsalt-auto-upgrades
+    - contents: |
+        APT::Periodic::Update-Package-Lists "1";
+        APT::Periodic::Unattended-Upgrade "0";
+    - user: root
+    - group: root
+    - mode: '0644'
+{% endif %}
+
+{% if enabled and manager == 'salt' and not scheduled and cfg.get('latest_packages', []) %}
 {% for package in cfg.get('latest_packages', []) %}
 package-updates-latest-{{ package }}:
   pkg.latest:

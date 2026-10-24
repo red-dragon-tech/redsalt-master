@@ -111,6 +111,62 @@ The current Salt master has 76 pending upgrades including Salt packages; this
 change only prepares configuration. It does not update the running master or
 other hosts until approved production code is promoted and applied.
 
+### Scheduled Kali rolling updates
+
+The `salt_master` role manages `redsalt-package-updates.timer` independently
+from deploy-on-change sync and ordinary daily highstate. It runs a short policy
+check daily with a randomized delay; the runner mutates only minions in the
+master-side `redsalt_package_updates:managed_minions` allowlist and only when
+their returned pillar explicitly opts in. The current allowlist is just
+`rdt-kali`. Kali updates are weekly in its Saturday 02:00–05:00
+`America/Chicago` window, deferred if an interactive login session exists,
+with that session check executed on Kali itself,
+bounded to the reviewed upgrade count and timeout, and use Salt with Debian
+distribution-upgrade behavior off. Native unattended APT and automatic reboot
+are disabled.
+
+`approved_preview_sha256` is a separate live-mutation gate and is empty on Kali
+by default. The first scheduled check can inventory upgrades and emit a
+test-mode preview with a fingerprint, but does not install packages until the
+exact target preview is reviewed and its fingerprint is explicitly approved.
+Do not set the fingerprint as part of merely merging or deploying the scheduler.
+
+The runner writes per-minion JSON and `summary.json` to
+`/var/lib/redsalt/package-updates/`, plus a bounded operational log at
+`/var/log/redsalt-package-updates.log`. Failed runs, absent/stale last-success
+records, unverified reboot state, or requested reboot generate `ISSUE:` output
+from the oneshot service for the existing error-only monitor.
+
+Inspect scheduler and recorded evidence on the management host:
+
+```bash
+systemctl list-timers redsalt-package-updates.timer --all
+systemctl status redsalt-package-updates.service
+systemctl start redsalt-package-updates.service
+cat /var/lib/redsalt/package-updates/summary.json
+journalctl -u redsalt-package-updates.service -n 100 --no-pager
+tail -100 /var/log/redsalt-package-updates.log
+```
+
+Before production promotion, render the exact-target highstate and
+`package_updates` test-mode for Kali and review the package plan. The scheduled
+runner invokes the live package state only inside the configured window after
+policy, idle-session, backlog, and overlap checks. It then confirms that no
+upgrades remain and records reboot-required state. A reboot is never automatic.
+This is not live-apply authorization: production promotion and timer activation
+on the master, and a Kali update run, each require their own reviewed and
+approved gate.
+
+There is no automated downgrade/rollback path for Kali rolling package
+updates. Before setting an approved preview fingerprint, confirm a verified
+workstation recovery image or backup and identify its owner-approved restore
+procedure.
+The Kali backup role is currently disabled; configured include paths are not
+evidence of a completed backup. If an update fails or disrupts the workstation,
+first remove the minion from the scheduler allowlist or disable its package
+update opt-in, preserve status/log evidence, restore from the approved recovery
+point, and verify Salt, network, and operator access before re-enabling.
+
 ## Rollout workflow
 
 1. Add or update host pillar under `pillar/minions/<minion-id>.sls`.

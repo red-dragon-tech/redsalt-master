@@ -3,6 +3,12 @@ roles:
   salt_master: true
   restic_backup: true
 
+redsalt_package_updates:
+  # Explicit scheduler scope: only minions whose pillar opts into scheduled
+  # Salt updates are queried or mutated by this runner.
+  managed_minions:
+    - rdt-kali
+
 package_updates:
   manager: salt
   enabled: true
