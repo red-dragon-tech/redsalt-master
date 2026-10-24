@@ -54,8 +54,11 @@ REQUIRED = [
     'states/redsalt_master_sync/files/redsalt-sync-prd.sh',
     'states/redsalt_highstate_convergence/init.sls',
     'states/redsalt_highstate_convergence/files/redsalt-highstate-convergence.py',
+    'states/redsalt_package_updates/init.sls',
+    'states/redsalt_package_updates/files/redsalt-package-updates.py',
     'states/restic_backup/init.sls',
     'states/package_updates/init.sls',
+    'states/package_updates/scheduled.sls',
     'states/package_updates/files/redsalt-reboot-if-required.py',
     'states/restic_backup/files/rdt-restic-backup.sh.j2',
     'states/restic_backup/files/restic-backup.service.j2',
@@ -71,6 +74,7 @@ REQUIRED = [
     'states/vllm/files/vllm-openai.service.j2',
     'tests/test_repo_static.py',
     'tests/test_package_updates.py',
+    'tests/test_redsalt_package_updates.py',
 ]
 ROLE_NAMES = {'base', 'docker', 'nvidia', 'llm_vllm', 'salt_master', 'kali_workstation', 'restic_backup'}
 DARTHAI_PUBLIC_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMKydWK+ac8LWsdujDXLIVTfAo5D1PxMr0+pcUn6Z5sG darth@hermes-agent-rdt-dev-1-remote-management'
@@ -236,6 +240,21 @@ def check_package_updates() -> None:
     for required in ['pkg.uptodate', 'unattended-upgrades', 'dnf-automatic-install.timer', 'dnf5-plugin-automatic', 'dnf5-automatic.timer', 'Persistent=false']:
         if required not in state:
             fail(f'package update state missing platform behavior: {required}')
+    if 'APT::Periodic::Unattended-Upgrade "0";' not in state:
+        fail('Salt-owned Debian updates must explicitly disable native unattended installs')
+    scheduled_state = (ROOT / 'states/package_updates/scheduled.sls').read_text()
+    if 'pkg.uptodate:' not in scheduled_state or 'scheduled_run:' not in scheduled_state:
+        fail('scheduled updates need a separate mutating state protected by explicit schedule policy')
+    if 'package_updates.scheduled' not in (ROOT / 'states/redsalt_package_updates/files/redsalt-package-updates.py').read_text():
+        fail('scheduled runner must invoke the dedicated scheduled package-update state')
+    if 'scheduled_apply_authorized' not in scheduled_state or 'approved_preview_sha256' not in scheduled_state:
+        fail('scheduled state must reject live applies without matching exact-preview authorization')
+    if "approved_hash|length == 64" not in scheduled_state or 'approval_valid and scheduled_apply_authorized == approved_hash' not in scheduled_state:
+        fail('scheduled apply approval must require a nonempty 64-character fingerprint before equality')
+    if "opts.get('test', False)" not in scheduled_state:
+        fail('scheduled state must use Salt template test-mode options for preview execution')
+    if "'pillar=' + json.dumps({'scheduled_apply_authorized'" not in (ROOT / 'states/redsalt_package_updates/files/redsalt-package-updates.py').read_text():
+        fail('scheduled runner must pass approval through Salt state Pillar override')
     role = (ROOT / 'states/roles/base.sls').read_text()
     if '- package_updates' not in role:
         fail('states/roles/base.sls must include package_updates state')
@@ -252,6 +271,45 @@ def check_package_updates() -> None:
         fail('mgmt.rdt.dev must keep Debian dist_upgrade disabled')
     if master_cfg.get('native_unattended') is not False:
         fail('mgmt.rdt.dev must not run a competing native package updater')
+
+
+def check_kali_package_updates() -> None:
+    kali = load_yaml(ROOT / 'pillar/minions/rdt_kali.sls') or {}
+    cfg = kali.get('package_updates') or {}
+    if cfg.get('enabled') is not True or cfg.get('manager') != 'salt' or cfg.get('scheduled') is not True:
+        fail('rdt-kali must explicitly opt in to scheduled Salt package updates')
+    if cfg.get('cadence_days') != 7 or cfg.get('stale_after_days', 0) < 8:
+        fail('rdt-kali must use weekly updates and a separately observable stale threshold')
+    if cfg.get('window_days') != ['Sat'] or cfg.get('window_start') != '02:00' or cfg.get('window_end') != '05:00':
+        fail('rdt-kali must keep updates inside the documented Saturday maintenance window')
+    if cfg.get('timezone') != 'America/Chicago' or cfg.get('require_idle') is not True:
+        fail('rdt-kali updates must use its local timezone and require an idle interactive session')
+    if cfg.get('max_upgrades') != 750 or cfg.get('timeout_seconds') != 3600:
+        fail('rdt-kali update safety limits are missing or changed')
+    if cfg.get('debian_dist_upgrade') is not False or cfg.get('native_unattended') is not False:
+        fail('rdt-kali must disable distribution upgrade and native unattended updates')
+    if cfg.get('automatic_reboot') is not False:
+        fail('rdt-kali automatic reboot must remain disabled')
+    if cfg.get('approved_preview_sha256') != '':
+        fail('rdt-kali must remain non-mutating until the exact preview is approved')
+    package_state = (ROOT / 'states/package_updates/init.sls').read_text()
+    if "os_family == 'Debian' and not cfg.get('native_unattended', False)" not in package_state:
+        fail('Salt-owned Kali update policy must explicitly disable native unattended APT installs')
+    master = load_yaml(ROOT / 'pillar/minions/mgmt_rdt_dev.sls') or {}
+    managed = ((master.get('redsalt_package_updates') or {}).get('managed_minions') or [])
+    if managed != ['rdt-kali']:
+        fail('package update runner scope must explicitly contain only rdt-kali')
+    role = (ROOT / 'states/roles/salt_master.sls').read_text()
+    if '- redsalt_package_updates' not in role:
+        fail('salt_master role must include redsalt_package_updates scheduler state')
+    base_role = (ROOT / 'states/roles/base.sls').read_text()
+    package_state = (ROOT / 'states/package_updates/init.sls').read_text()
+    if "enabled and manager == 'salt' and not scheduled" not in package_state:
+        fail('scheduled package updates must be excluded from routine base highstate')
+    runner = (ROOT / 'states/redsalt_package_updates/files/redsalt-package-updates.py').read_text()
+    for required in ('pkg.refresh_db', 'pkg.list_upgrades', 'state.apply', 'manual_attention', 'stale_minions'):
+        if required not in runner:
+            fail(f'package update runner missing required evidence behavior: {required}')
 
 
 def check_no_obvious_secrets() -> None:
@@ -275,6 +333,7 @@ def main() -> int:
     check_qwen_tool_template()
     check_firewall()
     check_package_updates()
+    check_kali_package_updates()
     check_no_obvious_secrets()
     print('redsalt-master validation passed')
     return 0

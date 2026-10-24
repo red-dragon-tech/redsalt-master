@@ -19,6 +19,7 @@ from typing import Any
 
 LOCK_PATH = Path('/run/redsalt-highstate-convergence.lock')
 SYNC_LOCK_PATH = Path('/run/redsalt-master-sync.lock')
+PACKAGE_UPDATES_LOCK_PATH = Path('/run/redsalt-package-updates.lock')
 STATUS_DIR = Path('/var/lib/redsalt/highstate-status')
 LOG_PATH = Path('/var/log/redsalt-highstate-convergence.log')
 TMP_SWAP = Path('/swapfile.redsalt-highstate-temp')
@@ -271,6 +272,7 @@ def main() -> int:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     lock_fd = os.open(LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o600)
     sync_lock_fd = os.open(SYNC_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o600)
+    package_updates_lock_fd = os.open(PACKAGE_UPDATES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o600)
     try:
         import fcntl
         try:
@@ -281,6 +283,11 @@ def main() -> int:
             fcntl.flock(sync_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             log('redsalt-master-sync lock is held; skipping convergence run')
+            return 0
+        try:
+            fcntl.flock(package_updates_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log('package updates lock is held; skipping convergence run')
             return 0
         log('convergence run start')
         failures: list[str] = []
@@ -324,6 +331,7 @@ def main() -> int:
         return 1
     finally:
         os.close(sync_lock_fd)
+        os.close(package_updates_lock_fd)
         os.close(lock_fd)
 
 

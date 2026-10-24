@@ -5,7 +5,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_package_update_role_is_included_in_base_role():
+def test_package_updates_are_not_applied_by_routine_base_highstate():
     role = (ROOT / "states/roles/base.sls").read_text()
     assert "- package_updates" in role
 
@@ -146,6 +146,86 @@ def test_update_state_renders_valid_yaml_for_debian_redhat_and_suse():
 def test_package_update_policy_is_in_global_pillar_top():
     top = (ROOT / "pillar/top.sls").read_text()
     assert "- package_updates.defaults" in top
+
+
+def test_kali_has_explicit_weekly_salt_updates_and_no_automatic_reboot():
+    import yaml
+
+    pillar = yaml.safe_load((ROOT / "pillar/minions/rdt_kali.sls").read_text())
+    cfg = pillar["package_updates"]
+    assert cfg["enabled"] is True
+    assert cfg["manager"] == "salt"
+    assert cfg["cadence_days"] == 7
+    assert cfg["scheduled"] is True
+    assert cfg["approved_preview_sha256"] == ""
+    assert cfg["debian_dist_upgrade"] is False
+    assert cfg["automatic_reboot"] is False
+
+
+def test_weekly_runner_is_managed_by_salt_master_role():
+    role = (ROOT / "states/roles/salt_master.sls").read_text()
+    assert "- redsalt_package_updates" in role
+
+
+def test_scheduled_kali_highstate_does_not_run_package_update_state():
+    state = (ROOT / "states/package_updates/init.sls").read_text()
+    assert "enabled and manager == 'salt' and not scheduled" in state
+
+
+def test_salt_owned_debian_updates_disable_native_unattended_install():
+    state = (ROOT / "states/package_updates/init.sls").read_text()
+    assert "package-updates-disable-debian-native-auto-upgrades" in state
+    assert 'APT::Periodic::Unattended-Upgrade "0";' in state
+    assert "os_family == 'Debian' and not cfg.get('native_unattended', False)" in state
+
+
+def test_scheduled_package_updates_use_a_separate_mutating_state():
+    template = (ROOT / "states/package_updates/init.sls").read_text()
+    scheduled = (ROOT / "states/package_updates/scheduled.sls").read_text()
+    runner = (ROOT / "states/redsalt_package_updates/files/redsalt-package-updates.py").read_text()
+    assert "pkg.uptodate" in scheduled
+    assert "scheduled_run:" in scheduled
+    assert "package_updates.scheduled" in runner
+    assert "package-updates-disable-debian-native-auto-upgrades" in template
+    assert "os_family == 'Debian' and not cfg.get('native_unattended', False)" in template
+    assert "and not scheduled and not cfg.get('native_unattended', False)" not in template
+    assert "scheduled_apply_authorized" in scheduled
+    assert "approved_preview_sha256" in scheduled
+    assert "opts.get('test', False)" in scheduled
+
+
+def test_scheduled_apply_state_rejects_missing_or_mismatched_live_approval():
+    from jinja2 import Environment
+    import yaml
+
+    source = (ROOT / "states/package_updates/scheduled.sls").read_text()
+    env = Environment()
+
+    def render(test_mode, auth):
+        cfg = {"enabled": True, "scheduled": True, "manager": "salt", "approved_preview_sha256": "a" * 64}
+        salt = {"pillar.get": lambda key, default=None: cfg if key == "package_updates" else auth if key == "scheduled_apply_authorized" else default}
+        text = env.from_string(source).render(salt=salt, grains={"os_family": "Debian"}, opts={"test": test_mode})
+        return yaml.safe_load(text) or {}
+
+    assert "package-updates-scheduled-uptodate" in render(True, False)
+    assert "package-updates-scheduled-uptodate" in render(False, "a" * 64)
+    assert "package-updates-scheduled-uptodate" not in render(False, False)
+    assert "package-updates-scheduled-policy-rejected" in render(False, False)
+
+
+def test_empty_approval_cannot_authorize_empty_one_run_override():
+    from jinja2 import Environment
+    import yaml
+
+    source = (ROOT / "states/package_updates/scheduled.sls").read_text()
+    cfg = {"enabled": True, "scheduled": True, "manager": "salt", "approved_preview_sha256": ""}
+    salt = {"pillar.get": lambda key, default=None: cfg if key == "package_updates" else "" if key == "scheduled_apply_authorized" else default}
+    rendered = Environment().from_string(source).render(
+        salt=salt, grains={"os_family": "Debian"}, opts={"test": False}
+    )
+    data = yaml.safe_load(rendered) or {}
+    assert "package-updates-scheduled-uptodate" not in data
+    assert "package-updates-scheduled-policy-rejected" in data
 
 
 def test_package_update_operator_docs_exist_and_explain_policy_choice():

@@ -68,6 +68,77 @@ reboot-check timer instead. The
 `mgmt.rdt.dev` host override enables a 06:00 UTC check explicitly; do not infer
 that all hosts inherit a reboot authorization.
 
+## Kali rolling workstation policy
+
+`rdt-kali` (`rdt-kali.core.home.rdt.dev`) is explicitly enrolled in a
+master-scheduled Salt-owned update policy. Ordinary daily highstate remains
+configuration convergence and does not install the scheduled broad package
+set. The management-host timer evaluates only the explicit `managed_minions`
+allowlist, which currently contains `rdt-kali`; each target must additionally
+return pillar with `enabled: true`, `manager: salt`, and `scheduled: true`.
+Native APT unattended updates remain disabled, preventing competing package
+manager jobs.
+
+Kali uses `pkg.uptodate` with metadata refresh and Debian `dist_upgrade: false`.
+This does not request a full dependency-changing distribution upgrade or
+autoremove. A weekly run is due Saturday between 02:00 and 05:00
+`America/Chicago`; the master checks policy daily with random delay. Updates
+are deferred while `loginctl list-sessions` reports any interactive session;
+the idle check is queried from the Kali minion itself, not the master.
+The plan is bounded to 750 available upgrades and a 60-minute Salt job. A
+larger backlog, missing policy, missed Salt return, failed state, remaining
+upgrades, or a reboot-required check that cannot be verified produces an
+`ISSUE:` alert. Not a live-apply authorization. Per-minion records and a run
+summary are written under
+`/var/lib/redsalt/package-updates/`; last success, last attempt, package
+counts, failures, reboot status, and stale status are recorded. Success is
+considered stale after `stale_after_days: 9`; stale alerts are repeated no more
+than daily.
+
+Live package application is separately gated by `approved_preview_sha256`,
+which is empty by default. The runner fingerprints the exact test-mode plan;
+until that fingerprint is explicitly approved for the named host, the runner
+may inspect the available-upgrade count and run Salt test mode, but it will not
+execute the mutating package state. Keep the fingerprint empty until the human
+reviews the real target-specific preview and approves the maintenance run by
+recording the exact 64-character plan fingerprint in minion pillar.
+
+The scheduled state also enforces this gate itself: Salt test mode remains
+available for plan review, but a live state apply requires an explicit one-run
+Pillar override `scheduled_apply_authorized` that is a valid, nonempty
+64-character lowercase hexadecimal fingerprint equal to the configured
+approved fingerprint. Empty or malformed values are rejected, including when
+both override and configured approval are empty. The master runner passes this
+value through the Salt `pillar` state argument only after checking the approved
+plan.
+It refreshes metadata and re-runs test mode immediately before mutation; if the
+host-bound fingerprint differs from the approved preview, it records the new
+plan for review and stops without applying packages.
+
+The fingerprint includes the minion ID as well as the canonicalized planned
+state changes, so it cannot be replayed as approval on another host. Before
+starting preview or mutation, the runner checks the minion's own clock and
+requires enough remaining local maintenance-window time for the bounded
+operation and verification. If the deadline is too close, it defers without
+consuming the failure retry cadence.
+
+There is no automatic package rollback: downgrades and dependency reversal are
+not assumed safe or available on Kali rolling. For a failed or service-impacting
+update, stop further runs by setting the exact minion's scheduled/update opt-in
+off, retain the runner status and Salt job evidence, then recover using the
+workstation owner's reviewed recovery image or a verified host backup and
+validate Salt/network/operator access before re-enrollment. The Kali pillar
+currently keeps its backup role disabled, so verify a usable recovery point
+before authorizing the first live update; do not treat the configured backup
+scope as proof that a backup exists.
+
+Automatic reboot is explicitly disabled for the shared security workstation.
+If the OS requires reboot after patching, the runner records the condition and
+alerts for an operator-approved maintenance/reboot action. Test-mode previews
+and validation are not authorization to apply the state to a live workstation;
+after a reviewed merge, follow the approval and canary procedure in the issue.
+The production service change and a live Kali application are separate steps.
+
 ## Rollout/verification
 
 Review `salt '<id>' state.show_highstate`, `salt '<id>' state.apply

@@ -10,6 +10,30 @@ roles:
   kali_workstation: true
   restic_backup: true
 
+package_updates:
+  # Kali rolling updates are scheduled from the Salt master, never from an
+  # ordinary highstate. Keep Debian dependency-changing distribution upgrades
+  # and unattended native APT updates disabled.
+  manager: salt
+  enabled: true
+  scheduled: true
+  # Leave blank until an operator approves the hash of the exact planned diff.
+  approved_preview_sha256: ''
+  refresh: true
+  debian_dist_upgrade: false
+  native_unattended: false
+  automatic_reboot: false
+  cadence_days: 7
+  stale_after_days: 9
+  window_days:
+    - Sat
+  window_start: '02:00'
+  window_end: '05:00'
+  timezone: America/Chicago
+  require_idle: true
+  max_upgrades: 750
+  timeout_seconds: 3600
+
 restic_backup:
   enabled: false
   tags:
