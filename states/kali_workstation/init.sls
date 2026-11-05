@@ -2,6 +2,13 @@
 {% set shared_root = cfg.get('shared_root', '/opt/shared') %}
 {% set shared_repos = cfg.get('shared_repos', []) %}
 {% set shell_helpers = cfg.get('shell_helpers', []) %}
+{% set promptfoo = cfg.get('promptfoo_mcp_redteam', {}) %}
+{% set repos_by_path = {} %}
+{% for repo in shared_repos %}
+{% if repo.get('path') %}
+{% set _ = repos_by_path.update({repo.get('path'): repo}) %}
+{% endif %}
+{% endfor %}
 
 kali-shared-root:
   file.directory:
@@ -48,6 +55,63 @@ kali-git-safe-directory-{{ repo_index }}-{{ user }}:
 {% endfor %}
 {% endif %}
 {% endfor %}
+
+{% if promptfoo.get('enabled', False) %}
+{% set promptfoo_repo = promptfoo.get('repo_path', '/opt/shared/kali-linux') %}
+{% set promptfoo_project = promptfoo.get('project_path', '/opt/promptfoo-mcp-redteam') %}
+{% set project_repo_config = repos_by_path.get(promptfoo_project, {}) %}
+{% set promptfoo_owner = project_repo_config.get('owner', promptfoo.get('owner', 'darthai')) %}
+{% set promptfoo_group = project_repo_config.get('group', promptfoo.get('group', 'users')) %}
+{% set promptfoo_mode = project_repo_config.get('mode', '0750') %}
+{% set promptfoo_helper = promptfoo_repo ~ '/scripts/setup/promptfoo_mcp_redteam.py' %}
+{% set promptfoo_target = promptfoo.get('target_url', 'https://REPLACE-WITH-AUTHORIZED-MCP-ENDPOINT.example/mcp') %}
+{% set repo_config = repos_by_path.get(promptfoo_repo, {}) %}
+{% set promptfoo_repo_owner = repo_config.get('owner', promptfoo.get('repo_owner', 'darthai')) %}
+kali-promptfoo-redteam-node-runtime:
+  pkg.installed:
+    - pkgs:
+      - nodejs
+      - npm
+
+kali-promptfoo-redteam-project-directory:
+  file.directory:
+    - name: {{ promptfoo_project }}
+    - user: {{ promptfoo_owner | json }}
+    - group: {{ promptfoo_group | json }}
+    - mode: {{ promptfoo_mode | json }}
+    - makedirs: True
+    - require:
+      - pkg: kali-promptfoo-redteam-node-runtime
+
+kali-promptfoo-redteam-node-version:
+  cmd.run:
+    - name: node --version && npm --version && npx --version && node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(Number(!(a>22||a===22&&b>=22)))' && echo 'changed=no comment="Node.js npm and npx satisfy Promptfoo minimum"'
+    - stateful: True
+    - require:
+      - pkg: kali-promptfoo-redteam-node-runtime
+
+kali-promptfoo-redteam-project-init:
+  cmd.run:
+    - name: python3 {{ promptfoo_helper | json }} init --project-dir {{ promptfoo_project | json }} --target-url {{ promptfoo_target | json }}
+    - runas: {{ promptfoo_owner }}
+    - unless: test -f {{ promptfoo_project | json }}/promptfooconfig.yaml && test -f {{ promptfoo_project | json }}/ROE.md && test -f {{ promptfoo_project | json }}/mcp-client-config.json && test -x {{ promptfoo_project | json }}/promptfoo-mcp-stdio.sh
+    - require:
+      - cmd: kali-promptfoo-redteam-node-version
+      - file: kali-promptfoo-redteam-project-directory
+{% if promptfoo_project in repos_by_path %}
+      - file: kali-shared-repo-dir-{{ shared_repos.index(repos_by_path.get(promptfoo_project)) + 1 }}
+{% elif promptfoo_repo in repos_by_path %}
+      - file: kali-shared-repo-dir-{{ shared_repos.index(repo_config) + 1 }}
+{% endif %}
+
+kali-promptfoo-redteam-prerequisite-check:
+  cmd.run:
+    - name: python3 {{ promptfoo_helper | json }} check --project-dir {{ promptfoo_project | json }} && echo 'changed=no comment="Promptfoo prerequisites verified"'
+    - stateful: True
+    - runas: {{ promptfoo_owner }}
+    - require:
+      - cmd: kali-promptfoo-redteam-project-init
+{% endif %}
 
 {% for helper in shell_helpers %}
 {% set user = helper.get('user') %}

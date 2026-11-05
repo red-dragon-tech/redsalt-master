@@ -116,3 +116,12 @@ kali_workstation:
       home: /home/darthai
     - user: hacknbone
       home: /home/hacknbone
+  promptfoo_mcp_redteam:
+    # Explicit per-minion opt-in: install Node.js/npm and create an unconfigured
+    # project scaffold. This does not run scans or start an MCP listener.
+    enabled: true
+    repo_path: /opt/shared/kali-linux
+    project_path: /opt/promptfoo-mcp-redteam
+    owner: darthai
+    group: users
+    target_url: https://REPLACE-WITH-AUTHORIZED-MCP-ENDPOINT.example/mcp

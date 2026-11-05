@@ -29,6 +29,7 @@ REQUIRED = [
     'docs/architecture.md',
     'docs/operations.md',
     'docs/package-updates.md',
+    'docs/promptfoo-mcp-redteam.md',
     'docs/security.md',
     'pillar/top.sls',
     'pillar/common/defaults.sls',
@@ -129,6 +130,46 @@ def check_roles() -> None:
             fail(f'states/top.sls missing pillar matcher for role {role}')
         if not (ROOT / f'states/roles/{role}.sls').exists():
             fail(f'missing state role file for {role}')
+
+
+def check_promptfoo_redteam() -> None:
+    pillar = load_yaml(ROOT / 'pillar/minions/rdt_kali.sls') or {}
+    cfg = ((pillar.get('kali_workstation') or {}).get('promptfoo_mcp_redteam') or {})
+    default_roles = load_yaml(ROOT / 'pillar/roles/defaults.sls') or {}
+    if (default_roles.get('roles') or {}).get('kali_workstation') is not False:
+        fail('kali_workstation role must remain opt-in by default')
+    if cfg.get('enabled') is not True:
+        fail('rdt_kali must explicitly opt in to Promptfoo MCP red-team provisioning')
+    if cfg.get('target_url') != 'https://REPLACE-WITH-AUTHORIZED-MCP-ENDPOINT.example/mcp':
+        fail('Promptfoo red-team pillar must retain the unapproved example target placeholder')
+    if cfg.get('project_path') != '/opt/promptfoo-mcp-redteam':
+        fail('Promptfoo red-team project must use the private /opt/promptfoo-mcp-redteam path')
+    if cfg.get('owner') != 'darthai' or cfg.get('group') != 'users':
+        fail('Promptfoo red-team project must default to darthai:users ownership')
+    if cfg.get('repo_path') != '/opt/shared/kali-linux':
+        fail('Promptfoo red-team helper must use the approved tracked Kali repository path')
+
+    state = (ROOT / 'states/kali_workstation/init.sls').read_text()
+    for required in [
+        "cfg.get('promptfoo_mcp_redteam', {})",
+        "promptfoo.get('enabled', False)",
+        'pkg.installed:',
+        '- nodejs',
+        '- npm',
+        'promptfoo_mcp_redteam.py',
+        'init --project-dir',
+        'check --project-dir',
+        'node --version',
+        'process.versions.node',
+        'test -x {{ promptfoo_project | json }}/promptfoo-mcp-stdio.sh',
+        'runas: {{ promptfoo_owner }}',
+    ]:
+        if required not in state:
+            fail(f'Kali Promptfoo state missing required opt-in behavior: {required}')
+    if 'redteam run' in state or 'mcp --transport http' in state:
+        fail('Kali Promptfoo deployment must not run red-team scans or expose HTTP MCP')
+    if '/opt/promptfoo-mcp-redteam' not in (ROOT / 'docs/promptfoo-mcp-redteam.md').read_text():
+        fail('Promptfoo deployment docs missing its project path')
 
 
 def check_managed_users() -> None:
@@ -328,6 +369,7 @@ def main() -> int:
     check_yaml()
     check_jinja()
     check_roles()
+    check_promptfoo_redteam()
     check_managed_users()
     check_restic_backup()
     check_qwen_tool_template()

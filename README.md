@@ -1,6 +1,6 @@
 # redsalt-master
 
-Production-oriented Salt state and pillar repository for managing Ubuntu Linux systems and NVIDIA GPU hosts that serve local LLMs with Docker and vLLM.
+Production-oriented Salt state and pillar repository for managing Ubuntu Linux systems and NVIDIA GPU hosts that serve local LLMs with Docker and vLLM, plus explicitly opted-in Kali workstation tooling.
 
 ## Scope
 
@@ -11,6 +11,7 @@ This repository is intentionally role-driven and standards-based:
 - **Container runtime:** Docker Engine + Docker Compose plugin
 - **GPU stack:** NVIDIA Container Toolkit, with optional driver package management
 - **LLM runtime:** vLLM OpenAI-compatible server
+- **Optional Kali tooling:** Promptfoo MCP red-team workspace on the explicitly opted-in `rdt-kali` minion
 - **Model path:** `/opt/models`, mounted into containers as `/models:ro`
 - **Secrets:** no real secrets are committed; use plain pillar placeholders only until GPG/SOPS/Vault/ext_pillar is introduced
 - **Baseline access:** `roles.base` creates the `darthai` SSH user with Darth's public key from plain pillar
@@ -46,6 +47,8 @@ Role composition states live in `states/roles/` and keep `states/top.sls` small.
 The `salt_master` role is reserved for the management host; it installs a frequent systemd timer that fast-forwards `/srv/redsalt-master` to `origin/prd`, validates the repo, refreshes Salt fileserver/pillar data, and applies highstate when the production commit changes. Separate recurring timers handle drift convergence and explicitly opted-in package updates. The package-update timer is allowlist- and per-minion-pillar-gated; it is not enabled fleet-wide.
 
 The optional `restic_backup` role installs a restic + Backblaze B2 backup scaffold. It is disabled by default and intentionally uses manual root-only host-local secret files for phase 1. Salt manages the file modes, include/exclude lists, script, and systemd units, but backups should only be enabled after each minion has a unique repository password and per-host/prefix-scoped B2 application key provisioned.
+
+The existing `kali_workstation` role can optionally install Node.js/npm and initialize a Promptfoo MCP red-team project when `kali_workstation:promptfoo_mcp_redteam:enabled` is explicitly true in host pillar. This integration is opt-in and configured only for `rdt-kali`. It creates a starter config with an unapproved example endpoint; it does **not** run scans or start an MCP service. See `docs/promptfoo-mcp-redteam.md` for scope, secrets, and preview instructions.
 
 ## Managed SSH access
 
@@ -104,3 +107,7 @@ The example pillar at `pillar/minions/example-vllm-node.sls` deploys:
 ## Security notes
 
 Plain pillar is acceptable for non-secret role and service defaults, but do **not** commit tokens, passwords, private keys, or vendor API keys. See `docs/security.md` for migration options.
+
+## Promptfoo MCP red-team on Kali
+
+The `rdt-kali` pillar explicitly opts into a Promptfoo project scaffold. It installs the packaged Node.js/npm prerequisites, then calls the helper tracked in `/opt/shared/kali-linux`; it never launches a scan or MCP server. See [`docs/promptfoo-mcp-redteam.md`](docs/promptfoo-mcp-redteam.md) for authorization, preview, provider-secret, and version notes.
